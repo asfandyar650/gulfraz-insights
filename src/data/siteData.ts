@@ -1,0 +1,82 @@
+import { Article, Category, Quote, ArticleAuthor } from '../types';
+import rawArticles from './articles.json';
+
+export const author: ArticleAuthor = {
+  name: "Gulfraz Khan",
+  role: "Writer & Founder",
+  avatar: "/assets/gulfraz-avatar-MBgtF9on.jpg",
+  bio: "Reader, writer, and researcher. I study personal finance, psychology, and the habits behind true independence, turning the best books into practical essays for everyday life.",
+  twitter: "https://twitter.com",
+  linkedin: "https://linkedin.com"
+};
+
+export const categories: Category[] = [
+  {
+    id: "wealth",
+    name: "Wealth & Financial Freedom",
+    description: "Frameworks, asset building, and strategies to decouple time from income.",
+    iconName: "TrendingUp",
+    badgeColor: "emerald"
+  },
+  {
+    id: "mindset",
+    name: "Mindset & Self-Mastery",
+    description: "Cognitive models and mental fitness to overcome self-limiting beliefs.",
+    iconName: "Compass",
+    badgeColor: "amber"
+  },
+  {
+    id: "psychology",
+    name: "Psychology & Human Nature",
+    description: "Understanding social dynamics, emotional intelligence, and influence.",
+    iconName: "Brain",
+    badgeColor: "indigo"
+  },
+  {
+    id: "career",
+    name: "Career & Asymmetric Growth",
+    description: "Leveraging rare skills, deep work, and high-impact positioning.",
+    iconName: "Zap",
+    badgeColor: "violet"
+  }
+];
+
+export const quotes: Quote[] = [
+  {
+    quote: "If you want to be rich, stop consuming and start producing. Don't buy franchises; sell them.",
+    author: "M.J. DeMarco",
+    source: "The Millionaire Fastlane"
+  },
+  {
+    quote: "Simplicity is the master key to financial independence. Spend less than you earn, invest the surplus, avoid debt.",
+    author: "J.L. Collins",
+    source: "The Simple Path to Wealth"
+  },
+  {
+    quote: "The ability to perform deep work is becoming increasingly rare at exactly the same time it is becoming increasingly valuable.",
+    author: "Cal Newport",
+    source: "Deep Work"
+  },
+  {
+    quote: "Never assume that the person you are dealing with is weaker or less important than you are.",
+    author: "Robert Greene",
+    source: "48 Laws of Power"
+  },
+  {
+    quote: "Greatness is not a function of circumstance. Greatness, it turns out, is largely a matter of conscious choice.",
+    author: "Jim Collins",
+    source: "Good to Great"
+  },
+  {
+    quote: "Money is something you choose to trade your life energy for. How much of your life is that item worth?",
+    author: "Vicki Robin",
+    source: "Your Money or Your Life"
+  },
+  {
+    quote: "You do not rise to the level of your goals. You fall to the level of your systems.",
+    author: "James Clear",
+    source: "Atomic Habits"
+  }
+];
+
+export const defaultArticles: Article[] = rawArticles as Article[];
