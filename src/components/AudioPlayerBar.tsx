@@ -32,7 +32,7 @@ export const AudioPlayerBar: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 dark:bg-slate-950/95 border-t border-slate-800 text-white shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom duration-300">
+    <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 bg-slate-900/95 dark:bg-slate-950/95 border-t border-slate-800 text-white shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom duration-300">
       {/* Clickable Progress Bar */}
       <div
         className="h-1 bg-slate-700/60 w-full cursor-pointer relative group"

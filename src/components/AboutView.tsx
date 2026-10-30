@@ -130,12 +130,18 @@ export const AboutView: React.FC = () => {
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-xl mx-auto leading-relaxed">
           I will never publish low-effort clickbait or sponsored hype that I wouldn&apos;t recommend to a close friend. Every essay here is written with care, honesty, and respect for your time.
         </p>
-        <div className="pt-2">
+        <div className="pt-3 flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/articles"
-            className="inline-flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95"
           >
             Start exploring the essays <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+          <Link
+            href="/support"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 text-xs font-bold transition-all hover:scale-105 active:scale-95"
+          >
+            Support Gulfraz 💛
           </Link>
         </div>
       </div>

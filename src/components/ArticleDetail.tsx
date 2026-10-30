@@ -24,6 +24,7 @@ import {
   Linkedin,
   Send,
   Edit3,
+  QrCode,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Article, Comment } from '../types';
@@ -218,7 +219,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
             {/* Audio Button */}
             <button
               onClick={() => playArticle(article)}
-              className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shrink-0 ${
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shrink-0 min-h-[42px] ${
                 isAudioActive
                   ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
                   : isAudioLoaded
@@ -247,7 +248,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
             {/* Bookmark */}
             <button
               onClick={() => toggleBookmark(article.id)}
-              className={`p-2 rounded-xl text-xs transition-colors shrink-0 ${
+              className={`p-2.5 rounded-xl text-xs transition-colors shrink-0 min-w-[42px] min-h-[42px] flex items-center justify-center ${
                 bookmarked
                   ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400'
                   : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
@@ -260,7 +261,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
             {/* Font Size Toggle */}
             <button
               onClick={() => setIsLargeFont(!isLargeFont)}
-              className={`p-2 rounded-xl text-xs transition-colors shrink-0 ${
+              className={`p-2.5 rounded-xl text-xs transition-colors shrink-0 min-w-[42px] min-h-[42px] flex items-center justify-center ${
                 isLargeFont
                   ? 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 font-bold'
                   : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
@@ -445,6 +446,30 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
               {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
             </button>
           </div>
+        </div>
+
+        {/* Support Gulfraz Callout Banner */}
+        <div className="mt-12 p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 flex flex-col sm:flex-row items-center justify-between gap-5 shadow-sm">
+          <div className="flex items-center gap-4 text-center sm:text-left">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <QrCode className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center justify-center sm:justify-start gap-1.5">
+                Support Gulfraz Insights 💛
+              </h4>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
+                Found this insight valuable? You can support our independent research via JazzCash or Payoneer QR code.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/support"
+            className="px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all flex items-center gap-2 shrink-0 active:scale-95"
+          >
+            <span>Scan QR Code</span>
+            <span className="text-xs">→</span>
+          </Link>
         </div>
 
         {/* Author Bio Box */}

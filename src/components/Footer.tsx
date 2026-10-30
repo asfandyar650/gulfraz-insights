@@ -95,13 +95,23 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="text-slate-400 hover:text-emerald-400 transition-colors">
-                  Contact & Feedback
+                <Link href="/support" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1.5">
+                  Support Gulfraz 💛
                 </Link>
               </li>
               <li>
-                <Link href="/calculator" className="text-slate-400 hover:text-emerald-400 transition-colors">
-                  Freedom Calculator
+                <Link href="/terms" className="text-slate-400 hover:text-emerald-400 transition-colors">
+                  Terms &amp; Conditions
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="text-slate-400 hover:text-emerald-400 transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-slate-400 hover:text-emerald-400 transition-colors">
+                  Contact &amp; Feedback
                 </Link>
               </li>
               <li>
@@ -164,15 +174,19 @@ export const Footer: React.FC = () => {
 
         {/* Bottom copyright */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Gulfraz Insights. Written & curated by Gulfraz Khan.</p>
-          <div className="flex items-center gap-4">
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors">
-              Twitter / X
-            </a>
+          <p>© {new Date().getFullYear()} Gulfraz Insights. Written &amp; curated by Gulfraz Khan.</p>
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+            <Link href="/terms" className="hover:text-emerald-400 transition-colors">
+              Terms &amp; Conditions
+            </Link>
             <span>•</span>
-            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors">
-              LinkedIn
-            </a>
+            <Link href="/privacy" className="hover:text-emerald-400 transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link href="/support" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">
+              Support 💛
+            </Link>
             <span>•</span>
             <Link href="/contact" className="hover:text-emerald-400 transition-colors">
               Editorial Contact
