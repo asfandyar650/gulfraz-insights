@@ -331,12 +331,12 @@ export const SupportView: React.FC = () => {
             If you need confirmation or want to reach out directly to Gulfraz, send an email anytime.
           </p>
         </div>
-        <a
-          href="mailto:supportgulfraz@gmail.com"
+        <Link
+          href="/contact"
           className="px-6 py-3 rounded-2xl bg-white text-slate-900 font-bold text-sm shadow hover:bg-emerald-50 transition-all flex items-center gap-2 shrink-0 active:scale-95"
         >
-          <Mail className="w-4 h-4 text-emerald-600" /> supportgulfraz@gmail.com
-        </a>
+          <Mail className="w-4 h-4 text-emerald-600" /> Contact Editorial Desk
+        </Link>
       </div>
 
       {/* QR Code Fullscreen Modal */}

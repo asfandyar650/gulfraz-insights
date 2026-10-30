@@ -83,14 +83,14 @@ export const PrivacyView: React.FC = () => {
           </h2>
           <p>
             If you have additional questions or require more information about our Privacy Policy, do not
-            hesitate to contact us via email at:
+            hesitate to get in touch with our editorial desk:
           </p>
-          <a
-            href="mailto:supportgulfraz@gmail.com"
+          <Link
+            href="/contact"
             className="inline-flex items-center gap-2 font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
           >
-            <Mail className="w-4 h-4" /> supportgulfraz@gmail.com
-          </a>
+            <Mail className="w-4 h-4" /> Reach Editorial Desk via Contact Form
+          </Link>
         </section>
       </div>
 

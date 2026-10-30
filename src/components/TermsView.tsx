@@ -102,12 +102,12 @@ export const TermsView: React.FC = () => {
 
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-2">
               <p>Questions about these terms?</p>
-              <a
-                href="mailto:supportgulfraz@gmail.com"
+              <Link
+                href="/contact"
                 className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
               >
-                <Mail className="w-3.5 h-3.5" /> supportgulfraz@gmail.com
-              </a>
+                <Mail className="w-3.5 h-3.5" /> Editorial Contact Desk
+              </Link>
             </div>
           </div>
         </aside>
@@ -362,13 +362,13 @@ export const TermsView: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm">
                 <Mail className="w-4 h-4 text-emerald-500" />
-                <span className="text-slate-500 dark:text-slate-400">Email:</span>
-                <a
-                  href="mailto:supportgulfraz@gmail.com"
+                <span className="text-slate-500 dark:text-slate-400">Direct Contact:</span>
+                <Link
+                  href="/contact"
                   className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
                 >
-                  supportgulfraz@gmail.com
-                </a>
+                  Contact Editorial Desk
+                </Link>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <ExternalLink className="w-4 h-4 text-emerald-500" />

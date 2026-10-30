@@ -35,11 +35,24 @@ export const ContactView: React.FC = () => {
       showToast('Please fill in all required fields.', 'error');
       return;
     }
+
+    const recipient = 'gulfrazofficially@gmail.com';
+    const emailSubject = `[Gulfraz Insights Inquiry] ${topic} - from ${name.trim()}`;
+    const emailBody = `Dear Gulfraz,\n\nYou have received a new contact submission from Gulfraz Insights:\n\nSender Name: ${name.trim()}\nSender Email: ${email.trim()}\nInquiry Topic: ${topic}\n\nMessage:\n${message.trim()}\n\n---\nSent via Gulfraz Insights Contact Desk`;
+
+    const mailtoUrl = `mailto:${recipient}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+
+    try {
+      window.location.href = mailtoUrl;
+    } catch (err) {
+      console.warn('Mailto dispatch error:', err);
+    }
+
     try {
       confetti({ particleCount: 50, spread: 50, origin: { y: 0.7 } });
     } catch {}
     setSubmitted(true);
-    showToast('Your message has been dispatched to Gulfraz Insights.', 'success');
+    showToast('Your message has been dispatched to Gulfraz Khan.', 'success');
   };
 
   return (
@@ -163,8 +176,8 @@ export const ContactView: React.FC = () => {
                   <Mail className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">Editorial Desk</p>
-                  <p className="font-semibold text-slate-900 dark:text-white">editor@gulfrazinsights.com</p>
+                  <p className="text-xs text-slate-400">Direct Inquiries</p>
+                  <p className="font-semibold text-slate-900 dark:text-white">Official Editorial Desk</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
