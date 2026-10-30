@@ -25,8 +25,17 @@ export interface FirebaseConfig {
 const STORAGE_KEY = 'gulfraz_firebase_config';
 const COLLECTION_NAME = 'articles';
 
-// Get active config (from localStorage if set, else from process.env)
-export function getActiveFirebaseConfig(): FirebaseConfig | null {
+export const DEFAULT_FIREBASE_CONFIG: FirebaseConfig = {
+  apiKey: "AIzaSyA9R4nsloyP65CSa01Bx8rIJ-F6xj-Frow",
+  authDomain: "gulfraz-insights.firebaseapp.com",
+  projectId: "gulfraz-insights",
+  storageBucket: "gulfraz-insights.firebasestorage.app",
+  messagingSenderId: "149272727698",
+  appId: "1:149272727698:web:865fd8fe28e547a04f564b",
+};
+
+// Get active config (from localStorage if set, else from process.env, else default)
+export function getActiveFirebaseConfig(): FirebaseConfig {
   if (typeof window !== 'undefined') {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -53,11 +62,11 @@ export function getActiveFirebaseConfig(): FirebaseConfig | null {
     return envConfig;
   }
 
-  return null;
+  return DEFAULT_FIREBASE_CONFIG;
 }
 
 export function isFirebaseConfigured(): boolean {
-  return getActiveFirebaseConfig() !== null;
+  return true;
 }
 
 let app: FirebaseApp | null = null;

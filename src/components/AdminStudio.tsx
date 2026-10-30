@@ -65,20 +65,20 @@ export const AdminStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'manage' | 'database'>('write');
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Database mode (MongoDB Atlas primary, Firebase alternative)
-  const [dbMode, setDbMode] = useState<'mongodb' | 'firebase'>('mongodb');
+  // Database mode (Firebase primary, MongoDB Atlas alternative)
+  const [dbMode, setDbMode] = useState<'firebase' | 'mongodb'>('firebase');
   const [mongoUri, setMongoUri] = useState('');
   const [testingMongo, setTestingMongo] = useState(false);
   const [syncingMongo, setSyncingMongo] = useState(false);
   const [mongoDocCount, setMongoDocCount] = useState<number | null>(null);
 
   // Firebase Config states
-  const [fbApiKey, setFbApiKey] = useState('');
-  const [fbProjectId, setFbProjectId] = useState('');
-  const [fbAuthDomain, setFbAuthDomain] = useState('');
-  const [fbStorageBucket, setFbStorageBucket] = useState('');
-  const [fbSenderId, setFbSenderId] = useState('');
-  const [fbAppId, setFbAppId] = useState('');
+  const [fbApiKey, setFbApiKey] = useState('AIzaSyA9R4nsloyP65CSa01Bx8rIJ-F6xj-Frow');
+  const [fbProjectId, setFbProjectId] = useState('gulfraz-insights');
+  const [fbAuthDomain, setFbAuthDomain] = useState('gulfraz-insights.firebaseapp.com');
+  const [fbStorageBucket, setFbStorageBucket] = useState('gulfraz-insights.firebasestorage.app');
+  const [fbSenderId, setFbSenderId] = useState('149272727698');
+  const [fbAppId, setFbAppId] = useState('1:149272727698:web:865fd8fe28e547a04f564b');
   const [rawConfigText, setRawConfigText] = useState('');
   const [syncingAll, setSyncingAll] = useState(false);
 
@@ -687,13 +687,13 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
               onClick={() => setActiveTab('database')}
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
                 activeTab === 'database'
-                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  ? 'bg-white dark:bg-slate-900 text-amber-500 shadow-sm'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <Database className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Database (MongoDB)</span>
-              {(mongoActive || firebaseActive) && (
+              <Database className="w-3.5 h-3.5 text-amber-500" />
+              <span>Firebase DB</span>
+              {(firebaseActive || mongoActive) && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               )}
             </button>
@@ -838,6 +838,17 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
           {/* Top Engine Selector Tabs */}
           <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm w-fit">
             <button
+              onClick={() => setDbMode('firebase')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                dbMode === 'firebase'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span className="text-base">🔥</span> Firebase Cloud Firestore
+              {firebaseActive && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>}
+            </button>
+            <button
               onClick={() => setDbMode('mongodb')}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
                 dbMode === 'mongodb'
@@ -847,17 +858,6 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
             >
               <span className="text-base">🍃</span> MongoDB Atlas & Compass
               {mongoActive && <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>}
-            </button>
-            <button
-              onClick={() => setDbMode('firebase')}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-                dbMode === 'firebase'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 font-black'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <span className="text-base">🔥</span> Firebase Firestore
-              {firebaseActive && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>}
             </button>
           </div>
 
