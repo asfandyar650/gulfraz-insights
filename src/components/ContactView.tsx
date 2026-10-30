@@ -36,7 +36,7 @@ export const ContactView: React.FC = () => {
       return;
     }
 
-    const recipient = 'a0669171@gmail.com';
+    const recipient = 'gulfrazofficially@gmail.com';
     const emailSubject = `[Gulfraz Insights Inquiry] ${topic} - from ${name.trim()}`;
     const emailBody = `Dear Gulfraz,\n\nYou have received a new contact submission from Gulfraz Insights:\n\nSender Name: ${name.trim()}\nSender Email: ${email.trim()}\nInquiry Topic: ${topic}\n\nMessage:\n${message.trim()}\n\n---\nSent via Gulfraz Insights Contact Desk`;
 
