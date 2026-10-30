@@ -23,6 +23,10 @@ import {
   Compass,
   ArrowLeft,
   LogOut,
+  Database,
+  RefreshCw,
+  UploadCloud,
+  CheckCircle2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useArticles } from '../context/ArticlesContext';
@@ -30,18 +34,43 @@ import { useToast } from '../context/ToastContext';
 import { Article, ArticleSection } from '../types';
 import { author } from '../data/siteData';
 import { ArticleDetail } from './ArticleDetail';
+import {
+  saveFirebaseConfig,
+  clearFirebaseConfig,
+  getActiveFirebaseConfig,
+  isFirebaseConfigured,
+  FirebaseConfig,
+} from '../lib/firebase';
 
 export const AdminStudio: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
-  const { articles, addArticle, updateArticle, deleteArticle, firebaseActive } = useArticles();
+  const {
+    articles,
+    addArticle,
+    updateArticle,
+    deleteArticle,
+    firebaseActive,
+    refreshFromFirebase,
+    syncAllToFirebase,
+  } = useArticles();
   const { showToast } = useToast();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'manage'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'manage' | 'firebase'>('write');
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Firebase Config states
+  const [fbApiKey, setFbApiKey] = useState('');
+  const [fbProjectId, setFbProjectId] = useState('');
+  const [fbAuthDomain, setFbAuthDomain] = useState('');
+  const [fbStorageBucket, setFbStorageBucket] = useState('');
+  const [fbSenderId, setFbSenderId] = useState('');
+  const [fbAppId, setFbAppId] = useState('');
+  const [rawConfigText, setRawConfigText] = useState('');
+  const [syncingAll, setSyncingAll] = useState(false);
 
   // Form states
   const [title, setTitle] = useState('');
@@ -104,7 +133,111 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
         setIsAuthenticated(true);
       }
     } catch {}
+
+    // Pre-fill existing Firebase credentials if configured
+    const currentConfig = getActiveFirebaseConfig();
+    if (currentConfig) {
+      setFbApiKey(currentConfig.apiKey || '');
+      setFbProjectId(currentConfig.projectId || '');
+      setFbAuthDomain(currentConfig.authDomain || '');
+      setFbStorageBucket(currentConfig.storageBucket || '');
+      setFbSenderId(currentConfig.messagingSenderId || '');
+      setFbAppId(currentConfig.appId || '');
+    }
   }, []);
+
+  const handleAutoParse = (text: string) => {
+    setRawConfigText(text);
+    try {
+      const extract = (key: string) => {
+        const regex = new RegExp(`['"]?${key}['"]?\\s*:\\s*['"]([^'"]+)['"]`, 'i');
+        const match = text.match(regex);
+        return match ? match[1] : '';
+      };
+      const apiKey = extract('apiKey');
+      const projectId = extract('projectId');
+      const authDomain = extract('authDomain');
+      const storageBucket = extract('storageBucket');
+      const messagingSenderId = extract('messagingSenderId');
+      const appId = extract('appId');
+
+      let parsedCount = 0;
+      if (apiKey) { setFbApiKey(apiKey); parsedCount++; }
+      if (projectId) { setFbProjectId(projectId); parsedCount++; }
+      if (authDomain) { setFbAuthDomain(authDomain); parsedCount++; }
+      if (storageBucket) { setFbStorageBucket(storageBucket); parsedCount++; }
+      if (messagingSenderId) { setFbSenderId(messagingSenderId); parsedCount++; }
+      if (appId) { setFbAppId(appId); parsedCount++; }
+
+      if (parsedCount >= 2) {
+        showToast('Extracted Firebase credentials successfully!', 'success');
+      }
+    } catch {}
+  };
+
+  const handleSaveFirebase = async () => {
+    if (!fbApiKey.trim() || !fbProjectId.trim()) {
+      showToast('Please provide at least an API Key and Project ID.', 'error');
+      return;
+    }
+    const config: FirebaseConfig = {
+      apiKey: fbApiKey.trim(),
+      projectId: fbProjectId.trim(),
+      authDomain: fbAuthDomain.trim() || `${fbProjectId.trim()}.firebaseapp.com`,
+      storageBucket: fbStorageBucket.trim() || `${fbProjectId.trim()}.appspot.com`,
+      messagingSenderId: fbSenderId.trim(),
+      appId: fbAppId.trim(),
+    };
+
+    const saved = saveFirebaseConfig(config);
+    if (saved) {
+      await refreshFromFirebase();
+      try {
+        confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+      } catch {}
+      showToast('🔥 Connected to Firebase Firestore Database successfully!', 'success');
+    } else {
+      showToast('Could not initialize Firebase with these credentials. Please check details.', 'error');
+    }
+  };
+
+  const handleDisconnectFirebase = () => {
+    if (window.confirm('Are you sure you want to disconnect from Firebase? The site will fallback to local storage.')) {
+      clearFirebaseConfig();
+      setFbApiKey('');
+      setFbProjectId('');
+      setFbAuthDomain('');
+      setFbStorageBucket('');
+      setFbSenderId('');
+      setFbAppId('');
+      setRawConfigText('');
+      showToast('Firebase connection cleared.', 'info');
+    }
+  };
+
+  const handleSyncAllEssays = async () => {
+    if (!isFirebaseConfigured()) {
+      showToast('Please connect your Firebase credentials first.', 'error');
+      return;
+    }
+    setSyncingAll(true);
+    showToast('Syncing all 73 essays into Firestore database...', 'info');
+    try {
+      const result = await syncAllToFirebase();
+      if (result.success) {
+        try {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
+        } catch {}
+        showToast(`🎉 Successfully uploaded ${result.count} essays to Firebase Firestore!`, 'success');
+      } else {
+        showToast('Sync failed or partially completed. Please ensure Firestore rules allow read/write.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Sync error: ${err?.message || 'Check Firestore rules'}`, 'error');
+    } finally {
+      setSyncingAll(false);
+    }
+  };
 
   const loadArticleToEdit = (art: Article) => {
     setEditingId(art.id);
@@ -451,6 +584,20 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
             >
               <FileText className="w-3.5 h-3.5" /> All ({articles.length})
             </button>
+            <button
+              onClick={() => setActiveTab('firebase')}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+                activeTab === 'firebase'
+                  ? 'bg-white dark:bg-slate-900 text-amber-500 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5 text-amber-500" />
+              <span>Firebase DB</span>
+              {firebaseActive && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              )}
+            </button>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -584,6 +731,310 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : activeTab === 'firebase' ? (
+        /* Mode 4: Firebase DB Management Tab */
+        <div className="space-y-8">
+          {/* Status & Overview Card */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-start sm:items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                  firebaseActive
+                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30 shadow-amber-500/10'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
+                }`}>
+                  <Database className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                      Firebase Cloud Firestore Database
+                    </h2>
+                    {firebaseActive ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        Connected & Live
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                        Local Mode (Not Connected)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
+                    Connect your Firebase Firestore project to automatically store every blog post in the cloud. All articles published or edited here will instantly show across the entire live website in real-time.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    refreshFromFirebase();
+                    showToast('Refreshed data from Firebase Firestore', 'info');
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2 transition-colors"
+                  title="Pull latest articles from Firestore"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
+                </button>
+                {firebaseActive && (
+                  <button
+                    type="button"
+                    onClick={handleDisconnectFirebase}
+                    className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-xs font-bold flex items-center gap-2 transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Sync All Card */}
+            <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <UploadCloud className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                    1-Click Initial Sync: Upload All 73 Existing Essays to Firebase
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
+                  Populate your Firestore collection (<code className="text-amber-600 dark:text-amber-400 font-mono">articles</code>) with all 73 Gulfraz Insights essays so your database is immediately ready.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSyncAllEssays}
+                disabled={syncingAll}
+                className={`px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 shadow-lg transition-all ${
+                  syncingAll
+                    ? 'bg-amber-400 text-slate-950 cursor-wait'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20 hover:scale-105 active:scale-95'
+                }`}
+              >
+                {syncingAll ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Syncing 73 Essays...
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="w-4 h-4" /> Sync All 73 Essays to Database
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Configuration Form Card */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+                  Firebase Project Credentials
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Paste your Firebase web config snippet or enter the fields below.
+                </p>
+              </div>
+
+              {/* Quick Auto-Parser Box */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">
+                  ⚡ Quick Paste (Auto-Detector)
+                </label>
+                <textarea
+                  rows={3}
+                  value={rawConfigText}
+                  onChange={(e) => handleAutoParse(e.target.value)}
+                  placeholder={`Paste the firebaseConfig snippet here, e.g.:
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  projectId: "gulfraz-insights",
+  ...
+};`}
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 placeholder:text-slate-400"
+                />
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Pasting your config will automatically fill in the form fields below.
+                </span>
+              </div>
+
+              {/* Form Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    API Key <span className="text-amber-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={fbApiKey}
+                    onChange={(e) => setFbApiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Project ID <span className="text-amber-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={fbProjectId}
+                    onChange={(e) => setFbProjectId(e.target.value)}
+                    placeholder="e.g. gulfraz-insights"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Auth Domain
+                  </label>
+                  <input
+                    type="text"
+                    value={fbAuthDomain}
+                    onChange={(e) => setFbAuthDomain(e.target.value)}
+                    placeholder="project-id.firebaseapp.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Storage Bucket
+                  </label>
+                  <input
+                    type="text"
+                    value={fbStorageBucket}
+                    onChange={(e) => setFbStorageBucket(e.target.value)}
+                    placeholder="project-id.appspot.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Messaging Sender ID
+                  </label>
+                  <input
+                    type="text"
+                    value={fbSenderId}
+                    onChange={(e) => setFbSenderId(e.target.value)}
+                    placeholder="1234567890"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    App ID
+                  </label>
+                  <input
+                    type="text"
+                    value={fbAppId}
+                    onChange={(e) => setFbAppId(e.target.value)}
+                    placeholder="1:1234567890:web:abc123"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-4 flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveFirebase}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all hover:scale-105 active:scale-95"
+                >
+                  <Save className="w-4 h-4" /> Save & Connect Firebase Database
+                </button>
+                {firebaseActive && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" /> Database is active and listening
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Quick 3-Step Setup Guide */}
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200 dark:border-slate-800 shadow-xl space-y-5">
+              <h3 className="font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" /> 3-Step Firebase Setup
+              </h3>
+
+              <ol className="space-y-4 text-xs text-slate-600 dark:text-slate-400">
+                <li className="flex gap-3">
+                  <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-500 font-bold flex items-center justify-center shrink-0">
+                    1
+                  </span>
+                  <div>
+                    <strong className="text-slate-900 dark:text-white block mb-0.5">
+                      Create Project & Web App
+                    </strong>
+                    Go to{' '}
+                    <a
+                      href="https://console.firebase.google.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-amber-500 underline font-semibold inline-flex items-center gap-0.5"
+                    >
+                      console.firebase.google.com <ExternalLink className="w-3 h-3" />
+                    </a>
+                    , click <em>Add Project</em>, then click the Web icon (<code className="font-mono">&lt;/&gt;</code>) to register an app.
+                  </div>
+                </li>
+
+                <li className="flex gap-3">
+                  <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-500 font-bold flex items-center justify-center shrink-0">
+                    2
+                  </span>
+                  <div>
+                    <strong className="text-slate-900 dark:text-white block mb-0.5">
+                      Create Firestore Database
+                    </strong>
+                    Under <em>Build</em>, click <strong>Firestore Database</strong> &rarr; <em>Create database</em>. Choose your server location and click Next.
+                  </div>
+                </li>
+
+                <li className="flex gap-3">
+                  <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-500 font-bold flex items-center justify-center shrink-0">
+                    3
+                  </span>
+                  <div>
+                    <strong className="text-slate-900 dark:text-white block mb-0.5">
+                      Copy Config & Save
+                    </strong>
+                    Copy the <code className="font-mono">firebaseConfig</code> object from Project Settings, paste it here, and click <strong>Save & Connect</strong>!
+                  </div>
+                </li>
+              </ol>
+
+              {/* Firestore Security Rules Card */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Firestore Rules (Rules Tab):
+                </span>
+                <pre className="p-3 rounded-xl bg-slate-950 text-emerald-400 text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /articles/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}`}
+                </pre>
+                <p className="text-[10px] text-slate-400">
+                  Set this in your Firestore Rules tab so your admin studio can read & write articles.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       ) : (

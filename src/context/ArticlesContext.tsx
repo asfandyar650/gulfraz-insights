@@ -8,6 +8,9 @@ import {
   getFirebaseArticles,
   publishArticleToFirebase,
   deleteArticleFromFirebase,
+  subscribeToArticles,
+  syncAllArticlesToFirebase,
+  getActiveFirebaseConfig,
 } from '../lib/firebase';
 
 interface ArticlesContextType {
@@ -20,6 +23,8 @@ interface ArticlesContextType {
   incrementViews: (id: string) => void;
   resetToDefaults: () => void;
   firebaseActive: boolean;
+  refreshFromFirebase: () => Promise<void>;
+  syncAllToFirebase: () => Promise<{ success: boolean; count: number }>;
 }
 
 const ArticlesContext = createContext<ArticlesContextType>({
@@ -32,6 +37,8 @@ const ArticlesContext = createContext<ArticlesContextType>({
   incrementViews: () => {},
   resetToDefaults: () => {},
   firebaseActive: false,
+  refreshFromFirebase: async () => {},
+  syncAllToFirebase: async () => ({ success: false, count: 0 }),
 });
 
 export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -43,12 +50,31 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       localStorage.setItem('gulfraz_active_articles', JSON.stringify(newArticles));
     } catch (e) {
-      console.warn('Error saving articles:', e);
+      console.warn('Error saving articles locally:', e);
     }
   }, []);
 
+  const refreshFromFirebase = useCallback(async () => {
+    if (!isFirebaseConfigured()) return;
+    try {
+      const remoteArticles = await getFirebaseArticles();
+      if (remoteArticles.length > 0) {
+        setArticles((prev) => {
+          const remoteIds = new Set(remoteArticles.map((r) => r.id));
+          const nonOverridden = prev.filter((p) => !remoteIds.has(p.id));
+          const merged = [...remoteArticles, ...nonOverridden];
+          saveArticlesLocally(merged);
+          return merged;
+        });
+        setFirebaseActive(true);
+      }
+    } catch (err) {
+      console.warn('Manual Firebase refresh error:', err);
+    }
+  }, [saveArticlesLocally]);
+
   useEffect(() => {
-    // 1. Initial load from local cache
+    // 1. Load from local cache first
     try {
       const stored = localStorage.getItem('gulfraz_active_articles');
       if (stored) {
@@ -63,24 +89,22 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Error reading stored articles:', e);
     }
 
-    // 2. If Firebase is configured, fetch remote articles in real time
+    // 2. Setup real-time listener if Firebase is configured
     if (isFirebaseConfigured()) {
       setFirebaseActive(true);
-      getFirebaseArticles()
-        .then((remoteArticles) => {
-          if (remoteArticles.length > 0) {
-            setArticles((prev) => {
-              const remoteIds = new Set(remoteArticles.map((r) => r.id));
-              const nonOverridden = prev.filter((p) => !remoteIds.has(p.id));
-              const merged = [...remoteArticles, ...nonOverridden];
-              saveArticlesLocally(merged);
-              return merged;
-            });
-          }
-        })
-        .catch((err) => {
-          console.warn('Firebase sync notice:', err);
+      const unsubscribe = subscribeToArticles((remoteArticles) => {
+        setArticles((prev) => {
+          const remoteIds = new Set(remoteArticles.map((r) => r.id));
+          const nonOverridden = prev.filter((p) => !remoteIds.has(p.id));
+          const merged = [...remoteArticles, ...nonOverridden];
+          saveArticlesLocally(merged);
+          return merged;
         });
+      });
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     }
 
     setMounted(true);
@@ -101,7 +125,6 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return updated;
       });
 
-      // Sync to Firebase if configured
       if (isFirebaseConfigured()) {
         publishArticleToFirebase(article).catch(console.error);
       }
@@ -117,7 +140,6 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return updated;
       });
 
-      // Sync to Firebase if configured
       if (isFirebaseConfigured()) {
         publishArticleToFirebase(article).catch(console.error);
       }
@@ -133,13 +155,16 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return updated;
       });
 
-      // Sync to Firebase if configured
       if (isFirebaseConfigured()) {
         deleteArticleFromFirebase(id).catch(console.error);
       }
     },
     [saveArticlesLocally]
   );
+
+  const syncAllToFirebase = useCallback(async () => {
+    return await syncAllArticlesToFirebase(articles);
+  }, [articles]);
 
   const incrementClaps = useCallback(
     (id: string) => {
@@ -182,6 +207,8 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incrementViews,
         resetToDefaults,
         firebaseActive,
+        refreshFromFirebase,
+        syncAllToFirebase,
       }}
     >
       {children}
