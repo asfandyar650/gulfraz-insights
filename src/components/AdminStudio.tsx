@@ -22,6 +22,7 @@ import {
   Clock,
   Compass,
   ArrowLeft,
+  LogOut,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useArticles } from '../context/ArticlesContext';
@@ -255,11 +256,12 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('gulfraz_admin_session');
+    try {
+      sessionStorage.removeItem('gulfraz_admin_session');
+    } catch {}
     setIsAuthenticated(false);
     setPassword('');
-    showToast('Logged out of Admin Studio.', 'info');
-    router.push('/');
+    showToast('You have successfully logged out of Admin Studio.', 'info');
   };
 
   const handlePublishOrUpdate = () => {
@@ -350,6 +352,15 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
               <Unlock className="w-4 h-4" /> Unlock Studio
             </button>
           </form>
+
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-6">
+            <Link
+              href="/"
+              className="text-xs text-slate-500 hover:text-emerald-500 transition-colors inline-flex items-center gap-1.5 font-medium"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Return to Website
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -461,10 +472,11 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
 
             <button
               onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-red-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title="Lock & Exit Admin"
+              className="px-3 py-2 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 shrink-0"
+              title="Log Out of Admin Panel"
             >
-              <Lock className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Log Out</span>
             </button>
           </div>
         </div>
@@ -498,15 +510,25 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                 Edit text, photos, headings, or permanently delete any blog post.
               </p>
             </div>
-            <button
-              onClick={() => {
-                handleResetForm();
-                setActiveTab('write');
-              }}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 self-start"
-            >
-              <Plus className="w-3.5 h-3.5" /> Compose New Blog
-            </button>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={() => {
+                  handleResetForm();
+                  setActiveTab('write');
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95"
+              >
+                <Plus className="w-3.5 h-3.5" /> Compose New Blog
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                title="Log Out of Admin Panel"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+            </div>
           </div>
 
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -879,6 +901,15 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
               >
                 {copiedJson ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copiedJson ? 'Copied JSON!' : 'Copy Article JSON'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full py-2.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/40 rounded-xl font-bold flex items-center justify-center gap-1.5 transition-colors mt-2"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out of Admin</span>
               </button>
             </div>
           </div>
