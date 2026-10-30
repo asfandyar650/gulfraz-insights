@@ -114,11 +114,6 @@ export const Footer: React.FC = () => {
                   Contact &amp; Feedback
                 </Link>
               </li>
-              <li>
-                <Link href="/admin" className="text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1">
-                  Author Studio <ExternalLink className="w-3 h-3 text-slate-500" />
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -164,8 +159,8 @@ export const Footer: React.FC = () => {
                 </button>
               </li>
               <li>
-                <Link href="/admin" className="text-slate-400 hover:text-emerald-400 transition-colors">
-                  Publishing Admin
+                <Link href="/articles" className="text-slate-400 hover:text-emerald-400 transition-colors">
+                  Explore All Essays
                 </Link>
               </li>
             </ul>

@@ -205,17 +205,6 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800 w-full sm:w-auto">
-            {isAdmin && (
-              <Link
-                href={`/admin?edit=${article.id}`}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
-                title="Edit this blog post"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit Blog</span>
-              </Link>
-            )}
-
             {/* Audio Button */}
             <button
               onClick={() => playArticle(article)}

@@ -410,13 +410,9 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Drawer Footer */}
               <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850/80 flex items-center justify-between text-xs">
-                <Link
-                  href="/admin"
-                  onClick={() => setMenuOpen(false)}
-                  className="font-bold text-slate-500 hover:text-emerald-500 flex items-center gap-1.5 transition-colors"
-                >
-                  <Lock className="w-3.5 h-3.5" /> Author Studio
-                </Link>
+                <span className="font-semibold text-slate-500 dark:text-slate-400 text-[11px]">
+                  Smart Ideas. Real Insights.
+                </span>
                 <span className="text-slate-400 text-[10px]">Gulfraz Khan © 2026</span>
               </div>
             </div>

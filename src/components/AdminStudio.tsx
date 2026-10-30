@@ -34,7 +34,7 @@ export const AdminStudio: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
-  const { articles, addArticle, updateArticle, deleteArticle } = useArticles();
+  const { articles, addArticle, updateArticle, deleteArticle, firebaseActive } = useArticles();
   const { showToast } = useToast();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -387,11 +387,22 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
             <Sparkles className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white truncate">
-              Gulfraz Insights Publishing Studio
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white truncate">
+                Gulfraz Insights Admin Studio
+              </h1>
+              {firebaseActive ? (
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                  🔥 Firebase Live
+                </span>
+              ) : (
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                  ⚡ Auto-Publish Live
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 truncate">
-              {editingId ? 'Updating blog article' : 'Composing new article'} • Instant live updates
+              {editingId ? 'Updating blog article' : 'Composing new article'} • Instant auto-publishing
             </p>
           </div>
         </div>

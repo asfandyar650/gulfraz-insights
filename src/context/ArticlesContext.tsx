@@ -3,6 +3,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Article } from '../types';
 import { defaultArticles } from '../data/siteData';
+import {
+  isFirebaseConfigured,
+  getFirebaseArticles,
+  publishArticleToFirebase,
+  deleteArticleFromFirebase,
+} from '../lib/firebase';
 
 interface ArticlesContextType {
   articles: Article[];
@@ -13,6 +19,7 @@ interface ArticlesContextType {
   incrementClaps: (id: string) => void;
   incrementViews: (id: string) => void;
   resetToDefaults: () => void;
+  firebaseActive: boolean;
 }
 
 const ArticlesContext = createContext<ArticlesContextType>({
@@ -24,31 +31,15 @@ const ArticlesContext = createContext<ArticlesContextType>({
   incrementClaps: () => {},
   incrementViews: () => {},
   resetToDefaults: () => {},
+  firebaseActive: false,
 });
 
 export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [articles, setArticles] = useState<Article[]>(defaultArticles);
   const [mounted, setMounted] = useState(false);
+  const [firebaseActive, setFirebaseActive] = useState(false);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('gulfraz_active_articles');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge custom articles with default articles if needed
-          const custom = parsed.filter((a: Article) => a.id.startsWith('custom-'));
-          const merged = [...custom, ...defaultArticles.filter(d => !custom.some(c => c.id === d.id))];
-          setArticles(parsed.length >= defaultArticles.length ? parsed : merged);
-        }
-      }
-    } catch (e) {
-      console.warn('Error reading stored articles:', e);
-    }
-    setMounted(true);
-  }, []);
-
-  const saveArticles = useCallback((newArticles: Article[]) => {
+  const saveArticlesLocally = useCallback((newArticles: Article[]) => {
     try {
       localStorage.setItem('gulfraz_active_articles', JSON.stringify(newArticles));
     } catch (e) {
@@ -56,54 +47,128 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
-  const getArticleBySlug = useCallback((slug: string) => {
-    return articles.find((a) => a.slug === slug || a.id === slug);
-  }, [articles]);
+  useEffect(() => {
+    // 1. Initial load from local cache
+    try {
+      const stored = localStorage.getItem('gulfraz_active_articles');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const custom = parsed.filter((a: Article) => a.id.startsWith('custom-'));
+          const merged = [...custom, ...defaultArticles.filter((d) => !custom.some((c) => c.id === d.id))];
+          setArticles(parsed.length >= defaultArticles.length ? parsed : merged);
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading stored articles:', e);
+    }
 
-  const addArticle = useCallback((article: Article) => {
-    setArticles((prev) => {
-      const updated = [article, ...prev];
-      saveArticles(updated);
-      return updated;
-    });
-  }, [saveArticles]);
+    // 2. If Firebase is configured, fetch remote articles in real time
+    if (isFirebaseConfigured()) {
+      setFirebaseActive(true);
+      getFirebaseArticles()
+        .then((remoteArticles) => {
+          if (remoteArticles.length > 0) {
+            setArticles((prev) => {
+              const remoteIds = new Set(remoteArticles.map((r) => r.id));
+              const nonOverridden = prev.filter((p) => !remoteIds.has(p.id));
+              const merged = [...remoteArticles, ...nonOverridden];
+              saveArticlesLocally(merged);
+              return merged;
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn('Firebase sync notice:', err);
+        });
+    }
 
-  const updateArticle = useCallback((article: Article) => {
-    setArticles((prev) => {
-      const updated = prev.map((a) => (a.id === article.id ? article : a));
-      saveArticles(updated);
-      return updated;
-    });
-  }, [saveArticles]);
+    setMounted(true);
+  }, [saveArticlesLocally]);
 
-  const deleteArticle = useCallback((id: string) => {
-    setArticles((prev) => {
-      const updated = prev.filter((a) => a.id !== id);
-      saveArticles(updated);
-      return updated;
-    });
-  }, [saveArticles]);
+  const getArticleBySlug = useCallback(
+    (slug: string) => {
+      return articles.find((a) => a.slug === slug || a.id === slug);
+    },
+    [articles]
+  );
 
-  const incrementClaps = useCallback((id: string) => {
-    setArticles((prev) => {
-      const updated = prev.map((a) => (a.id === id ? { ...a, claps: a.claps + 1 } : a));
-      saveArticles(updated);
-      return updated;
-    });
-  }, [saveArticles]);
+  const addArticle = useCallback(
+    (article: Article) => {
+      setArticles((prev) => {
+        const updated = [article, ...prev];
+        saveArticlesLocally(updated);
+        return updated;
+      });
 
-  const incrementViews = useCallback((id: string) => {
-    setArticles((prev) => {
-      const updated = prev.map((a) => (a.id === id ? { ...a, views: a.views + 1 } : a));
-      saveArticles(updated);
-      return updated;
-    });
-  }, [saveArticles]);
+      // Sync to Firebase if configured
+      if (isFirebaseConfigured()) {
+        publishArticleToFirebase(article).catch(console.error);
+      }
+    },
+    [saveArticlesLocally]
+  );
+
+  const updateArticle = useCallback(
+    (article: Article) => {
+      setArticles((prev) => {
+        const updated = prev.map((a) => (a.id === article.id ? article : a));
+        saveArticlesLocally(updated);
+        return updated;
+      });
+
+      // Sync to Firebase if configured
+      if (isFirebaseConfigured()) {
+        publishArticleToFirebase(article).catch(console.error);
+      }
+    },
+    [saveArticlesLocally]
+  );
+
+  const deleteArticle = useCallback(
+    (id: string) => {
+      setArticles((prev) => {
+        const updated = prev.filter((a) => a.id !== id);
+        saveArticlesLocally(updated);
+        return updated;
+      });
+
+      // Sync to Firebase if configured
+      if (isFirebaseConfigured()) {
+        deleteArticleFromFirebase(id).catch(console.error);
+      }
+    },
+    [saveArticlesLocally]
+  );
+
+  const incrementClaps = useCallback(
+    (id: string) => {
+      setArticles((prev) => {
+        const updated = prev.map((a) => (a.id === id ? { ...a, claps: a.claps + 1 } : a));
+        saveArticlesLocally(updated);
+        return updated;
+      });
+    },
+    [saveArticlesLocally]
+  );
+
+  const incrementViews = useCallback(
+    (id: string) => {
+      setArticles((prev) => {
+        const updated = prev.map((a) => (a.id === id ? { ...a, views: a.views + 1 } : a));
+        saveArticlesLocally(updated);
+        return updated;
+      });
+    },
+    [saveArticlesLocally]
+  );
 
   const resetToDefaults = useCallback(() => {
+    try {
+      localStorage.removeItem('gulfraz_active_articles');
+    } catch {}
     setArticles(defaultArticles);
-    saveArticles(defaultArticles);
-  }, [saveArticles]);
+  }, []);
 
   return (
     <ArticlesContext.Provider
@@ -116,6 +181,7 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         incrementClaps,
         incrementViews,
         resetToDefaults,
+        firebaseActive,
       }}
     >
       {children}

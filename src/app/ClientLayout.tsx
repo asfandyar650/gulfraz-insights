@@ -59,37 +59,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 pb-20 md:pb-0">{children}</main>
 
-      {/* Floating Author Mode Badge */}
-      {isAdmin && pathname !== '/admin' && (
-        <aside
-          aria-label="Admin quick actions"
-          className={`fixed right-4 sm:right-6 z-40 flex items-center gap-1.5 sm:gap-2 p-1.5 pl-3 sm:pl-3.5 pr-1.5 sm:pr-2 bg-slate-950/95 dark:bg-slate-900/95 text-white backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/30 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-[calc(100vw-2rem)] ${
-            currentArticle ? 'bottom-28 sm:bottom-24' : 'bottom-20 md:bottom-6'
-          }`}
-        >
-          <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-bold mr-1 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-            <span className="text-emerald-400 hidden xs:inline">Author Mode</span>
-          </div>
-
-          <Link
-            href="/admin"
-            className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all hover:scale-105 active:scale-95 shrink-0"
-            title="Open Author Publishing Studio"
-          >
-            <span>Back to Studio</span>
-          </Link>
-
-          <button
-            onClick={handleExitAdmin}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors shrink-0"
-            title="Lock & Exit Author Mode"
-          >
-            <Lock className="w-4 h-4 shrink-0" />
-          </button>
-        </aside>
-      )}
-
       <Footer />
       <ReadingListDrawer />
       <AudioPlayerBar />
