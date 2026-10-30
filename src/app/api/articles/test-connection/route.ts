@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
     let msg = err?.message || 'Connection failed';
     if (msg.includes('bad auth') || msg.includes('Authentication failed')) {
       msg = 'Authentication failed. Please verify your MongoDB database username and password.';
-    } else if (msg.includes('queryTxt ETIMEOUT') || msg.includes('ETIMEDOUT') || msg.includes('timed out')) {
-      msg = 'Connection timed out. Make sure Network Access in MongoDB Atlas allows IP 0.0.0.0/0 (Access from Anywhere).';
+    } else if (msg.includes('tlsv1 alert') || msg.includes('SSL routines') || msg.includes('ETIMEDOUT') || msg.includes('timed out')) {
+      msg = 'MongoDB Atlas blocked the connection. Go to MongoDB Atlas -> Security -> Network Access -> Add IP Address -> choose "Allow Access from Anywhere (0.0.0.0/0)" so Vercel can connect.';
     }
     return NextResponse.json({ success: false, error: msg });
   }
