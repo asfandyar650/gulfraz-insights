@@ -189,16 +189,17 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Theme Toggle (Hidden on small mobile to avoid crowding; accessible in mobile menu/drawer) */}
+            {/* Theme Toggle (Switch between White Background and Black Background) */}
             <button
               onClick={toggleTheme}
-              className="hidden sm:flex p-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-800 transition-all min-w-[40px] min-h-[40px] items-center justify-center"
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              className="flex p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all min-w-[40px] min-h-[40px] items-center justify-center shadow-sm active:scale-95"
+              title={theme === 'dark' ? 'Make Background White (Light Mode)' : 'Make Background Black (Dark Mode)'}
+              aria-label={theme === 'dark' ? 'Switch to White Background' : 'Switch to Black Background'}
             >
               {theme === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400" />
               ) : (
-                <Moon className="w-4 h-4 text-slate-700" />
+                <Moon className="w-4 h-4 text-slate-800" />
               )}
             </button>
 
@@ -344,7 +345,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {/* Theme Switcher Button */}
                   <button
                     onClick={toggleTheme}
-                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                    className="w-full flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs font-semibold text-slate-700 dark:text-slate-200 active:scale-95 transition-all"
                   >
                     <span className="flex items-center gap-2.5">
                       {theme === 'dark' ? (
@@ -352,9 +353,11 @@ export const Header: React.FC<HeaderProps> = ({
                       ) : (
                         <Moon className="w-4 h-4 text-slate-700" />
                       )}
-                      <span>Theme: {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+                      <span>Background: {theme === 'dark' ? 'Black (Dark Mode)' : 'White (Light Mode)'}</span>
                     </span>
-                    <span className="text-[11px] font-bold text-emerald-500">Toggle</span>
+                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      {theme === 'dark' ? 'Make White' : 'Make Black'}
+                    </span>
                   </button>
 
                   {/* Reading List Drawer shortcut */}
