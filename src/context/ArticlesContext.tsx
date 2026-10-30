@@ -25,6 +25,9 @@ interface ArticlesContextType {
   firebaseActive: boolean;
   refreshFromFirebase: () => Promise<void>;
   syncAllToFirebase: () => Promise<{ success: boolean; count: number }>;
+  mongoActive: boolean;
+  refreshFromMongo: () => Promise<void>;
+  syncAllToMongo: () => Promise<{ success: boolean; count: number; error?: string }>;
 }
 
 const ArticlesContext = createContext<ArticlesContextType>({
@@ -39,12 +42,16 @@ const ArticlesContext = createContext<ArticlesContextType>({
   firebaseActive: false,
   refreshFromFirebase: async () => {},
   syncAllToFirebase: async () => ({ success: false, count: 0 }),
+  mongoActive: false,
+  refreshFromMongo: async () => {},
+  syncAllToMongo: async () => ({ success: false, count: 0 }),
 });
 
 export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [articles, setArticles] = useState<Article[]>(defaultArticles);
   const [mounted, setMounted] = useState(false);
   const [firebaseActive, setFirebaseActive] = useState(false);
+  const [mongoActive, setMongoActive] = useState(false);
 
   const saveArticlesLocally = useCallback((newArticles: Article[]) => {
     try {
@@ -73,6 +80,42 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [saveArticlesLocally]);
 
+  const refreshFromMongo = useCallback(async () => {
+    try {
+      const res = await fetch('/api/articles');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.configured && Array.isArray(data.articles) && data.articles.length > 0) {
+          setArticles(data.articles);
+          saveArticlesLocally(data.articles);
+          setMongoActive(true);
+        } else if (data.configured) {
+          setMongoActive(true);
+        }
+      }
+    } catch (err) {
+      console.warn('Manual MongoDB refresh error:', err);
+    }
+  }, [saveArticlesLocally]);
+
+  const syncAllToMongo = useCallback(async (): Promise<{ success: boolean; count: number; error?: string }> => {
+    try {
+      const res = await fetch('/api/articles/sync-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articles }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMongoActive(true);
+        return { success: true, count: data.count || articles.length };
+      }
+      return { success: false, count: 0, error: data.error || 'Failed to sync' };
+    } catch (err: any) {
+      return { success: false, count: 0, error: err?.message || 'Network error' };
+    }
+  }, [articles]);
+
   useEffect(() => {
     // 1. Load from local cache first
     try {
@@ -89,7 +132,10 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Error reading stored articles:', e);
     }
 
-    // 2. Setup real-time listener if Firebase is configured
+    // 2. Check if MongoDB has articles available
+    refreshFromMongo();
+
+    // 3. Setup real-time listener if Firebase is configured
     if (isFirebaseConfigured()) {
       setFirebaseActive(true);
       const unsubscribe = subscribeToArticles((remoteArticles) => {
@@ -108,7 +154,7 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setMounted(true);
-  }, [saveArticlesLocally]);
+  }, [saveArticlesLocally, refreshFromMongo]);
 
   const getArticleBySlug = useCallback(
     (slug: string) => {
@@ -128,6 +174,13 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (isFirebaseConfigured()) {
         publishArticleToFirebase(article).catch(console.error);
       }
+
+      // Also persist to MongoDB Atlas via API
+      fetch('/api/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ article }),
+      }).catch((e) => console.warn('MongoDB auto-sync notice:', e));
     },
     [saveArticlesLocally]
   );
@@ -143,6 +196,13 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (isFirebaseConfigured()) {
         publishArticleToFirebase(article).catch(console.error);
       }
+
+      // Also persist to MongoDB Atlas via API
+      fetch('/api/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ article }),
+      }).catch((e) => console.warn('MongoDB auto-sync notice:', e));
     },
     [saveArticlesLocally]
   );
@@ -158,6 +218,11 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (isFirebaseConfigured()) {
         deleteArticleFromFirebase(id).catch(console.error);
       }
+
+      // Also delete from MongoDB Atlas via API
+      fetch(`/api/articles?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }).catch((e) => console.warn('MongoDB delete notice:', e));
     },
     [saveArticlesLocally]
   );
@@ -209,6 +274,9 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         firebaseActive,
         refreshFromFirebase,
         syncAllToFirebase,
+        mongoActive,
+        refreshFromMongo,
+        syncAllToMongo,
       }}
     >
       {children}

@@ -54,13 +54,23 @@ export const AdminStudio: React.FC = () => {
     firebaseActive,
     refreshFromFirebase,
     syncAllToFirebase,
+    mongoActive,
+    refreshFromMongo,
+    syncAllToMongo,
   } = useArticles();
   const { showToast } = useToast();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'manage' | 'firebase'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'manage' | 'database'>('write');
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Database mode (MongoDB Atlas primary, Firebase alternative)
+  const [dbMode, setDbMode] = useState<'mongodb' | 'firebase'>('mongodb');
+  const [mongoUri, setMongoUri] = useState('');
+  const [testingMongo, setTestingMongo] = useState(false);
+  const [syncingMongo, setSyncingMongo] = useState(false);
+  const [mongoDocCount, setMongoDocCount] = useState<number | null>(null);
 
   // Firebase Config states
   const [fbApiKey, setFbApiKey] = useState('');
@@ -134,6 +144,14 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
       }
     } catch {}
 
+    // Pre-fill existing MongoDB URI if saved
+    try {
+      const savedMongo = localStorage.getItem('gulfraz_mongodb_uri');
+      if (savedMongo) {
+        setMongoUri(savedMongo);
+      }
+    } catch {}
+
     // Pre-fill existing Firebase credentials if configured
     const currentConfig = getActiveFirebaseConfig();
     if (currentConfig) {
@@ -145,6 +163,72 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
       setFbAppId(currentConfig.appId || '');
     }
   }, []);
+
+  const handleTestAndSaveMongo = async () => {
+    if (!mongoUri.trim()) {
+      showToast('Please enter your MongoDB Atlas connection string.', 'error');
+      return;
+    }
+    setTestingMongo(true);
+    showToast('Testing MongoDB Atlas connection...', 'info');
+    try {
+      const res = await fetch('/api/articles/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: mongoUri.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMongoDocCount(data.count ?? 0);
+        try {
+          localStorage.setItem('gulfraz_mongodb_uri', mongoUri.trim());
+        } catch {}
+        await refreshFromMongo();
+        try {
+          confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+        } catch {}
+        showToast(`🍃 Successfully connected to MongoDB Atlas! (${data.count} blogs in collection)`, 'success');
+      } else {
+        showToast(data.error || 'Failed to connect to MongoDB Atlas.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Connection error: ${err?.message || 'Check network'}`, 'error');
+    } finally {
+      setTestingMongo(false);
+    }
+  };
+
+  const handleDisconnectMongo = () => {
+    if (window.confirm('Disconnect from MongoDB Atlas? The site will fallback to local storage.')) {
+      try {
+        localStorage.removeItem('gulfraz_mongodb_uri');
+      } catch {}
+      setMongoUri('');
+      setMongoDocCount(null);
+      showToast('MongoDB Atlas connection cleared.', 'info');
+    }
+  };
+
+  const handleSyncAllToMongo = async () => {
+    setSyncingMongo(true);
+    showToast('Uploading all 73 essays into MongoDB Atlas database...', 'info');
+    try {
+      const res = await syncAllToMongo();
+      if (res.success) {
+        setMongoDocCount(res.count);
+        try {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
+        } catch {}
+        showToast(`🎉 Successfully uploaded ${res.count} essays to MongoDB Atlas database!`, 'success');
+      } else {
+        showToast(res.error || 'Failed to sync essays to MongoDB Atlas.', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Sync error: ${err?.message || 'Check connection'}`, 'error');
+    } finally {
+      setSyncingMongo(false);
+    }
+  };
 
   const handleAutoParse = (text: string) => {
     setRawConfigText(text);
@@ -535,7 +619,11 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
               <h1 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white truncate">
                 Gulfraz Insights Admin Studio
               </h1>
-              {firebaseActive ? (
+              {mongoActive ? (
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                  🍃 MongoDB Atlas Live
+                </span>
+              ) : firebaseActive ? (
                 <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
                   🔥 Firebase Live
                 </span>
@@ -585,16 +673,16 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
               <FileText className="w-3.5 h-3.5" /> All ({articles.length})
             </button>
             <button
-              onClick={() => setActiveTab('firebase')}
+              onClick={() => setActiveTab('database')}
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
-                activeTab === 'firebase'
-                  ? 'bg-white dark:bg-slate-900 text-amber-500 shadow-sm'
+                activeTab === 'database'
+                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <Database className="w-3.5 h-3.5 text-amber-500" />
-              <span>Firebase DB</span>
-              {firebaseActive && (
+              <Database className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Database (MongoDB)</span>
+              {(mongoActive || firebaseActive) && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               )}
             </button>
@@ -733,294 +821,447 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
             ))}
           </div>
         </div>
-      ) : activeTab === 'firebase' ? (
-        /* Mode 4: Firebase DB Management Tab */
+      ) : activeTab === 'database' ? (
+        /* Mode 4: Database Management Tab (MongoDB Atlas & Compass + Firebase) */
         <div className="space-y-8">
-          {/* Status & Overview Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-start sm:items-center gap-4">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
-                  firebaseActive
-                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30 shadow-amber-500/10'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
-                }`}>
-                  <Database className="w-7 h-7" />
+          {/* Top Engine Selector Tabs */}
+          <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm w-fit">
+            <button
+              onClick={() => setDbMode('mongodb')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                dbMode === 'mongodb'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span className="text-base">🍃</span> MongoDB Atlas & Compass
+              {mongoActive && <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>}
+            </button>
+            <button
+              onClick={() => setDbMode('firebase')}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                dbMode === 'firebase'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <span className="text-base">🔥</span> Firebase Firestore
+              {firebaseActive && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>}
+            </button>
+          </div>
+
+          {/* ENGINE 1: MONGODB ATLAS & COMPASS */}
+          {dbMode === 'mongodb' ? (
+            <div className="space-y-8">
+              {/* Status & Overview Card */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-start sm:items-center gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-2xl ${
+                      mongoActive
+                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 shadow-emerald-500/10'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
+                    }`}>
+                      🍃
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                          MongoDB Atlas Cloud Database
+                        </h2>
+                        {mongoActive ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                            Connected & Live
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                            Not Connected (Local Mode)
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
+                        Store all your essays in MongoDB Atlas. Use <strong>MongoDB Compass</strong> desktop app on your PC to inspect, query, and edit your blogs in a visual database interface.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        refreshFromMongo();
+                        showToast('Refreshed data from MongoDB Atlas', 'info');
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2 transition-colors"
+                      title="Pull latest articles from MongoDB Atlas"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
+                    </button>
+                    {mongoActive && (
+                      <button
+                        type="button"
+                        onClick={handleDisconnectMongo}
+                        className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-xs font-bold flex items-center gap-2 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                      Firebase Cloud Firestore Database
-                    </h2>
-                    {firebaseActive ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                        Connected & Live
-                      </span>
+
+                {/* 1-Click Sync All to MongoDB Card */}
+                <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <UploadCloud className="w-5 h-5 text-emerald-500" />
+                      <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                        1-Click Initial Sync: Upload All 73 Existing Essays to MongoDB Atlas
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
+                      Populates your MongoDB Atlas database (<code className="text-emerald-600 dark:text-emerald-400 font-mono">gulfraz_insights.articles</code>) with all 73 essays so you can immediately see every blog in MongoDB Compass.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSyncAllToMongo}
+                    disabled={syncingMongo}
+                    className={`px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 shadow-lg transition-all ${
+                      syncingMongo
+                        ? 'bg-emerald-400 text-slate-950 cursor-wait'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 hover:scale-105 active:scale-95'
+                    }`}
+                  >
+                    {syncingMongo ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Uploading 73 Essays...
+                      </>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                        Local Mode (Not Connected)
+                      <>
+                        <UploadCloud className="w-4 h-4" /> Sync All 73 Essays to MongoDB
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Configuration Form & Compass Guide Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left: Connection String Form */}
+                <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                      <span>🍃</span> MongoDB Atlas Connection String
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Enter your MongoDB Atlas cluster connection URI to connect your site and admin panel.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                      Connection URI (mongodb+srv://)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={mongoUri}
+                      onChange={(e) => setMongoUri(e.target.value)}
+                      placeholder="mongodb+srv://<username>:<password>@cluster0.abcde.mongodb.net/gulfraz_insights?retryWrites=true&w=majority"
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-1.5 block">
+                      💡 Tip: Make sure to replace <code className="text-emerald-500 font-bold">&lt;password&gt;</code> with your actual database user password.
+                    </span>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleTestAndSaveMongo}
+                      disabled={testingMongo}
+                      className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all hover:scale-105 active:scale-95"
+                    >
+                      {testingMongo ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" /> Testing Connection...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" /> Test & Connect MongoDB Atlas
+                        </>
+                      )}
+                    </button>
+                    {mongoActive && (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" /> Connected to Database
                       </span>
                     )}
                   </div>
-                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
-                    Connect your Firebase Firestore project to automatically store every blog post in the cloud. All articles published or edited here will instantly show across the entire live website in real-time.
-                  </p>
+
+                  {mongoDocCount !== null && (
+                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-300">
+                      <strong>Database Verified:</strong> Database <code className="font-mono">gulfraz_insights</code> contains <strong>{mongoDocCount}</strong> articles in collection <code className="font-mono">articles</code>.
+                    </div>
+                  )}
+
+                  {/* 4-Step Free MongoDB Atlas Guide */}
+                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      How to get your free MongoDB Atlas URI in 2 minutes:
+                    </h4>
+                    <ol className="space-y-2 text-xs text-slate-600 dark:text-slate-400 list-decimal list-inside">
+                      <li>Go to <a href="https://www.mongodb.com/cloud/atlas/register" target="_blank" rel="noopener noreferrer" className="text-emerald-500 underline font-semibold">mongodb.com/cloud/atlas</a> and register a free account.</li>
+                      <li>Deploy a free <strong>M0 Cluster</strong> (100% free forever, 512MB storage).</li>
+                      <li>Under <strong>Database Access</strong>, create a username & password (e.g. <code className="font-mono">gulfraz</code>).</li>
+                      <li>Under <strong>Network Access</strong>, click <strong>Add IP Address</strong> &rarr; choose <strong>Allow Access from Anywhere (0.0.0.0/0)</strong>.</li>
+                      <li>Click <strong>Connect</strong> &rarr; <strong>Drivers</strong> &rarr; copy the connection string and paste it above!</li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* Right: MongoDB Compass Guide */}
+                <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-7 border border-slate-800 shadow-xl space-y-6">
+                  <div>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">
+                      🖥️
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-1">
+                      MongoDB Compass Desktop GUI
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Inspect and edit all 73 blogs visually in the official MongoDB Compass desktop application installed on your PC.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                        Step 1: Open MongoDB Compass
+                      </span>
+                      <p className="text-xs text-slate-300">
+                        Launch <strong>MongoDB Compass</strong> from your Desktop or Start Menu on your computer.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                        Step 2: Paste Connection String
+                      </span>
+                      <p className="text-xs text-slate-300">
+                        Paste the exact same <code className="text-emerald-400 font-mono">mongodb+srv://...</code> URI into the Compass connection field.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                        Step 3: Click Connect
+                      </span>
+                      <p className="text-xs text-slate-300">
+                        Compass will connect to your cluster and show all your databases.
+                      </p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                        Step 4: Explore All Blogs
+                      </span>
+                      <p className="text-xs text-slate-300">
+                        Click on database <strong className="text-white">gulfraz_insights</strong> &rarr; collection <strong className="text-white">articles</strong>. You will see every essay with JSON structure, interactive editing, search filters, and real-time viewing!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800">
+                    <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>Every blog you compose or update in Admin Studio will automatically appear in MongoDB Compass!</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
+          ) : (
+            /* ENGINE 2: FIREBASE FIRESTORE */
+            <div className="space-y-8">
+              {/* Status & Overview Card */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-start sm:items-center gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                      firebaseActive
+                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30 shadow-amber-500/10'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
+                    }`}>
+                      <Database className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                          Firebase Cloud Firestore Database
+                        </h2>
+                        {firebaseActive ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                            Connected & Live
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                            Local Mode (Not Connected)
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
+                        Connect your Firebase Firestore project to automatically store every blog post in the cloud.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    refreshFromFirebase();
-                    showToast('Refreshed data from Firebase Firestore', 'info');
-                  }}
-                  className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2 transition-colors"
-                  title="Pull latest articles from Firestore"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
-                </button>
-                {firebaseActive && (
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        refreshFromFirebase();
+                        showToast('Refreshed data from Firebase Firestore', 'info');
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2 transition-colors"
+                      title="Pull latest articles from Firestore"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
+                    </button>
+                    {firebaseActive && (
+                      <button
+                        type="button"
+                        onClick={handleDisconnectFirebase}
+                        className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-xs font-bold flex items-center gap-2 transition-colors"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Sync All Card */}
+                <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <UploadCloud className="w-5 h-5 text-amber-500" />
+                      <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                        1-Click Initial Sync: Upload All 73 Existing Essays to Firebase
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
+                      Populate your Firestore collection (<code className="text-amber-600 dark:text-amber-400 font-mono">articles</code>) with all 73 Gulfraz Insights essays so your database is immediately ready.
+                    </p>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={handleDisconnectFirebase}
-                    className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-xs font-bold flex items-center gap-2 transition-colors"
+                    onClick={handleSyncAllEssays}
+                    disabled={syncingAll}
+                    className={`px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 shadow-lg transition-all ${
+                      syncingAll
+                        ? 'bg-amber-400 text-slate-950 cursor-wait'
+                        : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20 hover:scale-105 active:scale-95'
+                    }`}
                   >
-                    Disconnect
+                    {syncingAll ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Syncing 73 Essays...
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-4 h-4" /> Sync All 73 Essays to Database
+                      </>
+                    )}
                   </button>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Sync All Card */}
-            <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col md:flex-row md:items-center justify-between gap-5">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <UploadCloud className="w-5 h-5 text-amber-500" />
-                  <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                    1-Click Initial Sync: Upload All 73 Existing Essays to Firebase
-                  </h3>
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
-                  Populate your Firestore collection (<code className="text-amber-600 dark:text-amber-400 font-mono">articles</code>) with all 73 Gulfraz Insights essays so your database is immediately ready.
-                </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleSyncAllEssays}
-                disabled={syncingAll}
-                className={`px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 shadow-lg transition-all ${
-                  syncingAll
-                    ? 'bg-amber-400 text-slate-950 cursor-wait'
-                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20 hover:scale-105 active:scale-95'
-                }`}
-              >
-                {syncingAll ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" /> Syncing 73 Essays...
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud className="w-4 h-4" /> Sync All 73 Essays to Database
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+              {/* Configuration Form Card */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+                      Firebase Project Credentials
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Paste your Firebase web config snippet or enter the fields below.
+                    </p>
+                  </div>
 
-          {/* Configuration Form Card */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
-                  Firebase Project Credentials
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Paste your Firebase web config snippet or enter the fields below.
-                </p>
-              </div>
-
-              {/* Quick Auto-Parser Box */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">
-                  ⚡ Quick Paste (Auto-Detector)
-                </label>
-                <textarea
-                  rows={3}
-                  value={rawConfigText}
-                  onChange={(e) => handleAutoParse(e.target.value)}
-                  placeholder={`Paste the firebaseConfig snippet here, e.g.:
+                  {/* Quick Auto-Parser Box */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">
+                      ⚡ Quick Paste (Auto-Detector)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={rawConfigText}
+                      onChange={(e) => handleAutoParse(e.target.value)}
+                      placeholder={`Paste the firebaseConfig snippet here, e.g.:
 const firebaseConfig = {
   apiKey: "AIzaSy...",
   projectId: "gulfraz-insights",
   ...
 };`}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 placeholder:text-slate-400"
-                />
-                <span className="text-[11px] text-slate-400 mt-1 block">
-                  Pasting your config will automatically fill in the form fields below.
-                </span>
-              </div>
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 placeholder:text-slate-400"
+                    />
+                  </div>
 
-              {/* Form Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    API Key <span className="text-amber-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={fbApiKey}
-                    onChange={(e) => setFbApiKey(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+                  {/* Form Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                        API Key <span className="text-amber-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={fbApiKey}
+                        onChange={(e) => setFbApiKey(e.target.value)}
+                        placeholder="AIzaSy..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Project ID <span className="text-amber-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={fbProjectId}
-                    onChange={(e) => setFbProjectId(e.target.value)}
-                    placeholder="e.g. gulfraz-insights"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                        Project ID <span className="text-amber-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={fbProjectId}
+                        onChange={(e) => setFbProjectId(e.target.value)}
+                        placeholder="e.g. gulfraz-insights"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Auth Domain
-                  </label>
-                  <input
-                    type="text"
-                    value={fbAuthDomain}
-                    onChange={(e) => setFbAuthDomain(e.target.value)}
-                    placeholder="project-id.firebaseapp.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Storage Bucket
-                  </label>
-                  <input
-                    type="text"
-                    value={fbStorageBucket}
-                    onChange={(e) => setFbStorageBucket(e.target.value)}
-                    placeholder="project-id.appspot.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Messaging Sender ID
-                  </label>
-                  <input
-                    type="text"
-                    value={fbSenderId}
-                    onChange={(e) => setFbSenderId(e.target.value)}
-                    placeholder="1234567890"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    App ID
-                  </label>
-                  <input
-                    type="text"
-                    value={fbAppId}
-                    onChange={(e) => setFbAppId(e.target.value)}
-                    placeholder="1:1234567890:web:abc123"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              {/* Action Button */}
-              <div className="pt-4 flex flex-col sm:flex-row items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleSaveFirebase}
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all hover:scale-105 active:scale-95"
-                >
-                  <Save className="w-4 h-4" /> Save & Connect Firebase Database
-                </button>
-                {firebaseActive && (
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4" /> Database is active and listening
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Quick 3-Step Setup Guide */}
-            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200 dark:border-slate-800 shadow-xl space-y-5">
-              <h3 className="font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" /> 3-Step Firebase Setup
-              </h3>
-
-              <ol className="space-y-4 text-xs text-slate-600 dark:text-slate-400">
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-500 font-bold flex items-center justify-center shrink-0">
-                    1
-                  </span>
-                  <div>
-                    <strong className="text-slate-900 dark:text-white block mb-0.5">
-                      Create Project & Web App
-                    </strong>
-                    Go to{' '}
-                    <a
-                      href="https://console.firebase.google.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-amber-500 underline font-semibold inline-flex items-center gap-0.5"
+                  {/* Action Button */}
+                  <div className="pt-4 flex flex-col sm:flex-row items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSaveFirebase}
+                      className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all hover:scale-105 active:scale-95"
                     >
-                      console.firebase.google.com <ExternalLink className="w-3 h-3" />
-                    </a>
-                    , click <em>Add Project</em>, then click the Web icon (<code className="font-mono">&lt;/&gt;</code>) to register an app.
+                      <Save className="w-4 h-4" /> Save & Connect Firebase
+                    </button>
+                    {firebaseActive && (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" /> Database is active
+                      </span>
+                    )}
                   </div>
-                </li>
+                </div>
 
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-500 font-bold flex items-center justify-center shrink-0">
-                    2
-                  </span>
-                  <div>
-                    <strong className="text-slate-900 dark:text-white block mb-0.5">
-                      Create Firestore Database
-                    </strong>
-                    Under <em>Build</em>, click <strong>Firestore Database</strong> &rarr; <em>Create database</em>. Choose your server location and click Next.
-                  </div>
-                </li>
-
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 rounded-full bg-amber-500/10 text-amber-500 font-bold flex items-center justify-center shrink-0">
-                    3
-                  </span>
-                  <div>
-                    <strong className="text-slate-900 dark:text-white block mb-0.5">
-                      Copy Config & Save
-                    </strong>
-                    Copy the <code className="font-mono">firebaseConfig</code> object from Project Settings, paste it here, and click <strong>Save & Connect</strong>!
-                  </div>
-                </li>
-              </ol>
-
-              {/* Firestore Security Rules Card */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
-                  Firestore Rules (Rules Tab):
-                </span>
-                <pre className="p-3 rounded-xl bg-slate-950 text-emerald-400 text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
+                {/* Quick 3-Step Setup Guide */}
+                <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500" /> Firestore Rules
+                  </h3>
+                  <pre className="p-3 rounded-xl bg-slate-950 text-emerald-400 text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
 {`rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -1029,13 +1270,11 @@ service cloud.firestore {
     }
   }
 }`}
-                </pre>
-                <p className="text-[10px] text-slate-400">
-                  Set this in your Firestore Rules tab so your admin studio can read & write articles.
-                </p>
+                  </pre>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
         /* Mode 3: Write Tab */
