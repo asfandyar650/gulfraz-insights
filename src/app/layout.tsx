@@ -44,6 +44,45 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <head>
+        {/* Google AdSense Account Verification */}
+        <meta name="google-adsense-account" content="ca-pub-5904976707208833" />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5904976707208833"
+          crossOrigin="anonymous"
+        />
+
+        {/* Schema.org Structured Data for Google Indexing & AdSense Authority */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'WebSite',
+                  '@id': 'https://gulfrazinsights.com/#website',
+                  url: 'https://gulfrazinsights.com/',
+                  name: 'Gulfraz Insights',
+                  description: 'Smart Ideas. Real Insights. Personal Finance, Wealth & Psychology.',
+                  inLanguage: 'en-US',
+                  publisher: {
+                    '@id': 'https://gulfrazinsights.com/#person',
+                  },
+                },
+                {
+                  '@type': 'Person',
+                  '@id': 'https://gulfrazinsights.com/#person',
+                  name: 'Gulfraz Khan',
+                  jobTitle: 'Author & Financial Researcher',
+                  url: 'https://gulfrazinsights.com/about',
+                  description: 'Founder and writer at Gulfraz Insights.',
+                },
+              ],
+            }),
+          }}
+        />
+
         <script
           dangerouslySetInnerHTML={{
             __html: `
