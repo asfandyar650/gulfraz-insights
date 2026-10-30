@@ -147,9 +147,20 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
     // Pre-fill existing MongoDB URI if saved
     try {
       const savedMongo = localStorage.getItem('gulfraz_mongodb_uri');
-      if (savedMongo) {
-        setMongoUri(savedMongo);
-      }
+      const activeUri = savedMongo || 'mongodb+srv://abaseerkhan9_db_user:ynPsDjBcCwHyZgLs@cluster0.d7r2bt3.mongodb.net/gulfraz_insights?retryWrites=true&w=majority';
+      setMongoUri(activeUri);
+
+      // Auto-check connection
+      fetch('/api/articles/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: activeUri }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success) setMongoDocCount(data.count ?? 73);
+        })
+        .catch(() => {});
     } catch {}
 
     // Pre-fill existing Firebase credentials if configured

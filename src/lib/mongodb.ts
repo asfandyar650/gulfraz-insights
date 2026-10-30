@@ -12,6 +12,8 @@ declare global {
   var _customMongoUri: string | undefined;
 }
 
+const DEFAULT_MONGO_URI = 'mongodb+srv://abaseerkhan9_db_user:ynPsDjBcCwHyZgLs@cluster0.d7r2bt3.mongodb.net/gulfraz_insights?retryWrites=true&w=majority';
+
 export function getMongoUri(): string | null {
   if (global._customMongoUri && !global._customMongoUri.includes('<password>')) {
     return global._customMongoUri;
@@ -22,7 +24,7 @@ export function getMongoUri(): string | null {
   if (process.env.NEXT_PUBLIC_MONGODB_URI && !process.env.NEXT_PUBLIC_MONGODB_URI.includes('<password>')) {
     return process.env.NEXT_PUBLIC_MONGODB_URI;
   }
-  return null;
+  return DEFAULT_MONGO_URI;
 }
 
 export function setCustomMongoUri(uri: string) {
