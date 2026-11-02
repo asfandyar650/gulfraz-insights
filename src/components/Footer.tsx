@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Mail, ArrowRight, CheckCircle2, TrendingUp, Compass, Brain, Zap, ExternalLink } from 'lucide-react';
+import { Mail, ArrowRight, CheckCircle2, TrendingUp, BookOpen, Laptop, Brain, Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useToast } from '../context/ToastContext';
 import { useReadingList } from '../context/ReadingListContext';
+import { categories } from '../lib/categories';
 
 export const Footer: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -121,26 +122,35 @@ export const Footer: React.FC = () => {
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-white mb-4">Categories</h4>
             <ul className="space-y-2.5 text-sm">
-              <li>
-                <Link href="/articles?category=wealth" className="text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> Wealth & Freedom
-                </Link>
-              </li>
-              <li>
-                <Link href="/articles?category=mindset" className="text-slate-400 hover:text-amber-400 transition-colors flex items-center gap-1.5">
-                  <Compass className="w-3.5 h-3.5 text-amber-500" /> Mindset & Mastery
-                </Link>
-              </li>
-              <li>
-                <Link href="/articles?category=psychology" className="text-slate-400 hover:text-indigo-400 transition-colors flex items-center gap-1.5">
-                  <Brain className="w-3.5 h-3.5 text-indigo-500" /> Human Psychology
-                </Link>
-              </li>
-              <li>
-                <Link href="/articles?category=career" className="text-slate-400 hover:text-violet-400 transition-colors flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-violet-500" /> Career & Growth
-                </Link>
-              </li>
+              {categories.map((cat) => {
+                const getIcon = () => {
+                  switch (cat.id) {
+                    case 'book-notes':
+                      return <BookOpen className="w-3.5 h-3.5 text-amber-500" />;
+                    case 'wealth-investing':
+                      return <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />;
+                    case 'make-money-online':
+                      return <Laptop className="w-3.5 h-3.5 text-cyan-500" />;
+                    case 'mindset-psychology':
+                      return <Brain className="w-3.5 h-3.5 text-indigo-500" />;
+                    case 'career-skills':
+                      return <Zap className="w-3.5 h-3.5 text-violet-500" />;
+                    default:
+                      return <BookOpen className="w-3.5 h-3.5 text-emerald-500" />;
+                  }
+                };
+
+                return (
+                  <li key={cat.id}>
+                    <Link
+                      href={`/category/${cat.slug}`}
+                      className="text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1.5"
+                    >
+                      {getIcon()} {cat.name}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 

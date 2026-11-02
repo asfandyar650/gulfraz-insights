@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Quote as QuoteIcon, ArrowRight, Sparkles } from 'lucide-react';
+import { Quote as QuoteIcon, ArrowRight, Sparkles, BookOpen, ExternalLink } from 'lucide-react';
 import { Article } from '../types';
 import { quotes } from '../data/siteData';
 import { ArticleCard } from './ArticleCard';
+import { categories, normalizeCategory } from '../lib/categories';
 
 interface CategorySectionProps {
   articles: Article[];
@@ -17,7 +18,7 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ articles }) =>
   const filtered =
     selectedCategory === 'all'
       ? articles
-      : articles.filter((a) => a.category === selectedCategory);
+      : articles.filter((a) => normalizeCategory(a.category) === selectedCategory);
 
   const dailyQuote = quotes[new Date().getDay() % quotes.length];
 
@@ -34,9 +35,19 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ articles }) =>
               Latest Insights & Essays
             </h2>
           </div>
-          <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
-            Honest book notes, practical financial lessons, and thoughts on living deliberately.
-          </p>
+          <div className="flex flex-col sm:items-end gap-2">
+            <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
+              Book summaries, financial lessons, online income, psychology, and career frameworks.
+            </p>
+            {selectedCategory !== 'all' && (
+              <Link
+                href={`/category/${selectedCategory}`}
+                className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1"
+              >
+                Go to Dedicated Category Page <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Category Pills */}
@@ -51,46 +62,23 @@ export const CategorySection: React.FC<CategorySectionProps> = ({ articles }) =>
           >
             All Essays ({articles.length})
           </button>
-          <button
-            onClick={() => setSelectedCategory('wealth')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-              selectedCategory === 'wealth'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
-            }`}
-          >
-            Wealth & Freedom
-          </button>
-          <button
-            onClick={() => setSelectedCategory('mindset')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-              selectedCategory === 'mindset'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
-            }`}
-          >
-            Mindset & Growth
-          </button>
-          <button
-            onClick={() => setSelectedCategory('psychology')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-              selectedCategory === 'psychology'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
-            }`}
-          >
-            Psychology
-          </button>
-          <button
-            onClick={() => setSelectedCategory('career')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-              selectedCategory === 'career'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
-            }`}
-          >
-            Career & Growth
-          </button>
+          {categories.map((cat) => {
+            const count = articles.filter((a) => normalizeCategory(a.category) === cat.id).length;
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                  isSelected
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                {cat.name} ({count})
+              </button>
+            );
+          })}
         </div>
 
         {/* Daily Wisdom Quote Box */}

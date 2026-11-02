@@ -7,6 +7,8 @@ const uri = 'mongodb+srv://abaseerkhan9_db_user:ynPsDjBcCwHyZgLs@cluster0.d7r2bt
 async function seed() {
   console.log('Connecting to MongoDB Atlas...');
   const client = new MongoClient(uri, {
+    tls: true,
+    tlsAllowInvalidCertificates: true,
     serverSelectionTimeoutMS: 10000,
     connectTimeoutMS: 12000,
   });

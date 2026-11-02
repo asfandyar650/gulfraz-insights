@@ -20,13 +20,55 @@ export interface ArticleSection {
   quote?: SectionQuote;
 }
 
+export type CategoryId =
+  | 'book-notes'
+  | 'wealth-investing'
+  | 'make-money-online'
+  | 'mindset-psychology'
+  | 'career-skills'
+  // Support legacy category strings during migration
+  | 'wealth'
+  | 'mindset'
+  | 'psychology'
+  | 'career';
+
+export type ContentBlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'subheading'
+  | 'image'
+  | 'quote'
+  | 'bullet-list'
+  | 'numbered-list'
+  | 'divider';
+
+export interface ContentBlock {
+  id: string;
+  type: ContentBlockType;
+  // For paragraph, heading, subheading
+  text?: string;
+  level?: 1 | 2 | 3; // 1 = H1, 2 = H2, 3 = H3
+  // For image
+  url?: string;
+  caption?: string;
+  alt?: string;
+  alignment?: 'left' | 'center' | 'right' | 'full';
+  size?: 'small' | 'medium' | 'large' | 'full';
+  // For quote
+  quoteText?: string;
+  quoteAuthor?: string;
+  quoteSource?: string;
+  // For lists
+  items?: string[];
+}
+
 export interface Article {
   id: string;
   slug: string;
   title: string;
   subtitle: string;
   excerpt: string;
-  category: 'wealth' | 'mindset' | 'psychology' | 'career';
+  category: CategoryId;
   author: ArticleAuthor;
   publishedAt: string;
   readTime: string;
@@ -37,15 +79,24 @@ export interface Article {
   views: number;
   claps: number;
   keyTakeaways: string[];
+  // Block-based content system (unlimited paragraphs, images, quotes, etc.)
+  contentBlocks?: ContentBlock[];
+  // Legacy sections preserved for backward compatibility
   sections: ArticleSection[];
+  // Publishing & SEO options
+  status?: 'draft' | 'published';
+  seoTitle?: string;
+  seoDescription?: string;
+  updatedAt?: string;
 }
 
 export interface Category {
-  id: 'wealth' | 'mindset' | 'psychology' | 'career';
+  id: 'book-notes' | 'wealth-investing' | 'make-money-online' | 'mindset-psychology' | 'career-skills';
+  slug: string;
   name: string;
   description: string;
   iconName: string;
-  badgeColor: 'emerald' | 'amber' | 'indigo' | 'violet';
+  badgeColor: 'amber' | 'emerald' | 'cyan' | 'indigo' | 'violet';
 }
 
 export interface Quote {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -18,28 +18,44 @@ import {
   Save,
   X,
   FileText,
-  Layers,
   Clock,
-  Compass,
   ArrowLeft,
   LogOut,
   Database,
   RefreshCw,
   UploadCloud,
-  CheckCircle2,
+  MoveUp,
+  MoveDown,
+  Image as ImageIcon,
+  Quote as QuoteIcon,
+  Heading,
+  List,
+  ListOrdered,
+  Minus,
+  Upload,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Maximize2,
+  FileDown,
+  BookOpen,
+  Calendar,
+  Globe,
+  Sliders
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useArticles } from '../context/ArticlesContext';
 import { useToast } from '../context/ToastContext';
-import { Article, ArticleSection } from '../types';
+import { Article, CategoryId, ContentBlock, ContentBlockType } from '../types';
 import { author } from '../data/siteData';
 import { ArticleDetail } from './ArticleDetail';
+import { categories, normalizeCategory, getCategoryLabel, getCategoryBadgeClass } from '../lib/categories';
+import { ensureContentBlocks, contentBlocksToSections, createEmptyBlock } from '../lib/contentBlocks';
 import {
   saveFirebaseConfig,
   clearFirebaseConfig,
   getActiveFirebaseConfig,
   isFirebaseConfigured,
-  FirebaseConfig,
 } from '../lib/firebase';
 
 export const AdminStudio: React.FC = () => {
@@ -82,41 +98,58 @@ export const AdminStudio: React.FC = () => {
   const [rawConfigText, setRawConfigText] = useState('');
   const [syncingAll, setSyncingAll] = useState(false);
 
-  // Form states
+  // Publishing & SEO metadata
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
-  const [category, setCategory] = useState<'wealth' | 'mindset' | 'psychology' | 'career'>('wealth');
+  const [category, setCategory] = useState<CategoryId>('wealth-investing');
   const [coverImage, setCoverImage] = useState(
     'https://images.unsplash.com/photo-1553729459-efe14ef6055d?auto=format&fit=crop&w=1400&q=80'
   );
-  const [tags, setTags] = useState('Wealth, Strategy, Mindset');
+  const [tags, setTags] = useState('Wealth, Strategy, Psychology');
+  const [authorName, setAuthorName] = useState(author.name);
+  const [publishedDate, setPublishedDate] = useState(
+    new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  );
+  const [customSlug, setCustomSlug] = useState('');
+  const [seoTitle, setSeoTitle] = useState('');
+  const [seoDescription, setSeoDescription] = useState('');
+  const [status, setStatus] = useState<'published' | 'draft'>('published');
   const [keyTakeaways, setKeyTakeaways] = useState<string[]>([
-    'First core strategic takeaway for readers.',
+    'First strategic takeaway for readers.',
     'Second actionable principle to apply immediately.',
   ]);
 
-  interface FormSection {
-    id: string;
-    title: string;
-    contentText: string;
-    quoteText?: string;
-    quoteAuthor?: string;
-  }
-
-  const [sections, setSections] = useState<FormSection[]>([
+  // Block-based content system (UNLIMITED paragraphs, headings, quotes, images, etc.)
+  const [blocks, setBlocks] = useState<ContentBlock[]>([
     {
-      id: 'section-1',
-      title: 'The Core Principle',
-      contentText: `Write your main analysis here. Separate paragraphs with a blank line.
-
-Explain the concept clearly and provide real-world examples or frameworks.`,
+      id: 'blk-init-h1',
+      type: 'heading',
+      text: 'The Core Principle',
+      level: 2,
+    },
+    {
+      id: 'blk-init-p1',
+      type: 'paragraph',
+      text: 'Write your opening insights and introduction here. There is no artificial limit on the number of paragraphs you can write.',
+    },
+    {
+      id: 'blk-init-q1',
+      type: 'quote',
       quoteText: 'Simplicity and leverage are the ultimate drivers of wealth.',
-      quoteAuthor: 'Gulfraz Insights',
+      quoteAuthor: 'Gulfraz Khan',
+      quoteSource: 'Gulfraz Insights',
+    },
+    {
+      id: 'blk-init-p2',
+      type: 'paragraph',
+      text: 'Continue with further analysis, practical takeaways, and lessons. You can insert quotes or images between any paragraphs at any time.',
     },
   ]);
 
   const [copiedJson, setCopiedJson] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   const presetPhotos = [
     {
@@ -124,16 +157,20 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
       url: 'https://images.unsplash.com/photo-1553729459-efe14ef6055d?auto=format&fit=crop&w=1400&q=80',
     },
     {
-      label: 'Investment & Charts',
-      url: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1400&q=80',
+      label: 'Books & Knowledge',
+      url: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=1400&q=80',
     },
     {
-      label: 'Strategy & Focus',
-      url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1400&q=80',
+      label: 'Digital Laptop',
+      url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1400&q=80',
     },
     {
-      label: 'Mindset & Psychology',
+      label: 'Mindset & Cosmos',
       url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1400&q=80',
+    },
+    {
+      label: 'Career & Growth',
+      url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1400&q=80',
     },
   ];
 
@@ -175,6 +212,322 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
     }
   }, []);
 
+  // Block management functions
+  const handleAddBlock = (type: ContentBlockType, atIndex?: number) => {
+    const newBlock = createEmptyBlock(type);
+    if (typeof atIndex === 'number' && atIndex >= 0 && atIndex <= blocks.length) {
+      const updated = [...blocks];
+      updated.splice(atIndex + 1, 0, newBlock);
+      setBlocks(updated);
+    } else {
+      setBlocks((prev) => [...prev, newBlock]);
+    }
+    showToast(`Added ${type} block`, 'info');
+  };
+
+  const handleUpdateBlock = (index: number, updates: Partial<ContentBlock>) => {
+    setBlocks((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], ...updates };
+      return next;
+    });
+  };
+
+  const handleDeleteBlock = (index: number) => {
+    if (blocks.length <= 1) {
+      showToast('At least one content block is required.', 'error');
+      return;
+    }
+    setBlocks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMoveBlock = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === blocks.length - 1) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const updated = [...blocks];
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
+    setBlocks(updated);
+  };
+
+  const handleDuplicateBlock = (index: number) => {
+    const original = blocks[index];
+    const duplicated: ContentBlock = {
+      ...JSON.parse(JSON.stringify(original)),
+      id: 'blk-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 6),
+    };
+    const updated = [...blocks];
+    updated.splice(index + 1, 0, duplicated);
+    setBlocks(updated);
+    showToast('Block duplicated', 'info');
+  };
+
+  // Image Upload handler for content block
+  const handleImageUploadForBlock = (e: React.ChangeEvent<HTMLInputElement>, blockIndex: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      handleUpdateBlock(blockIndex, { url: dataUrl });
+      showToast('Image uploaded successfully from your computer!', 'success');
+    };
+    reader.onerror = () => {
+      showToast('Failed to read image file.', 'error');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Image Upload for cover image
+  const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCoverImage(reader.result as string);
+      showToast('Cover image updated from your computer!', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Estimated read time calculation
+  const readTimeCalculated = useMemo(() => {
+    let wordCount = (title + ' ' + subtitle + ' ' + excerpt).split(/\s+/).filter(Boolean).length;
+    blocks.forEach((b) => {
+      if (b.text) wordCount += b.text.split(/\s+/).filter(Boolean).length;
+      if (b.quoteText) wordCount += b.quoteText.split(/\s+/).filter(Boolean).length;
+      if (b.items) wordCount += b.items.join(' ').split(/\s+/).filter(Boolean).length;
+    });
+    return `${Math.max(1, Math.ceil(wordCount / 180))} min read`;
+  }, [title, subtitle, excerpt, blocks]);
+
+  // Derived slug
+  const finalSlug = useMemo(() => {
+    if (customSlug.trim()) {
+      return customSlug
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+    }
+    return (title || 'untitled-essay')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+  }, [customSlug, title]);
+
+  // Full article draft object
+  const articleDraft = useMemo((): Article => {
+    const existing = editingId ? articles.find((a) => a.id === editingId) : null;
+
+    return {
+      id: editingId || `custom-${Date.now()}`,
+      slug: finalSlug,
+      title: title || 'Untitled Strategic Insight',
+      subtitle: subtitle || 'Brief overview of this insight',
+      excerpt: excerpt || subtitle || 'A practical breakdown of key ideas.',
+      category: normalizeCategory(category),
+      author: {
+        ...author,
+        name: authorName || author.name,
+      },
+      publishedAt: publishedDate || existing?.publishedAt || new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      readTime: readTimeCalculated,
+      coverImage: coverImage || presetPhotos[0].url,
+      tags: tags
+        .split(',')
+        .map((t) => t.trim().replace(/^#/, ''))
+        .filter(Boolean),
+      featured: existing?.featured || false,
+      trending: existing?.trending || true,
+      views: existing?.views || 1,
+      claps: existing?.claps || 0,
+      keyTakeaways: keyTakeaways.filter((t) => t.trim() !== ''),
+      contentBlocks: blocks,
+      sections: contentBlocksToSections(blocks),
+      status,
+      seoTitle: seoTitle || title,
+      seoDescription: seoDescription || excerpt || subtitle,
+      updatedAt: new Date().toISOString(),
+    };
+  }, [
+    editingId,
+    articles,
+    finalSlug,
+    title,
+    subtitle,
+    excerpt,
+    category,
+    authorName,
+    publishedDate,
+    readTimeCalculated,
+    coverImage,
+    tags,
+    keyTakeaways,
+    blocks,
+    status,
+    seoTitle,
+    seoDescription,
+  ]);
+
+  // Load article for editing
+  const loadArticleToEdit = (art: Article) => {
+    setEditingId(art.id);
+    setTitle(art.title);
+    setSubtitle(art.subtitle || '');
+    setExcerpt(art.excerpt || art.subtitle || '');
+    setCategory(normalizeCategory(art.category));
+    setCoverImage(art.coverImage);
+    setTags(art.tags ? art.tags.join(', ') : 'Wealth, Strategy');
+    setAuthorName(art.author?.name || author.name);
+    setPublishedDate(art.publishedAt);
+    setCustomSlug(art.slug);
+    setSeoTitle(art.seoTitle || art.title);
+    setSeoDescription(art.seoDescription || art.subtitle || art.excerpt);
+    setStatus(art.status || 'published');
+    setKeyTakeaways(art.keyTakeaways && art.keyTakeaways.length > 0 ? art.keyTakeaways : ['']);
+
+    // Ensure content blocks
+    const loadedBlocks = ensureContentBlocks(art);
+    setBlocks(loadedBlocks);
+
+    setActiveTab('write');
+    showToast(`Loaded "${art.title.slice(0, 30)}..." for editing`, 'info');
+  };
+
+  useEffect(() => {
+    if (editId && articles.length > 0) {
+      const art = articles.find((a) => a.id === editId || a.slug === editId);
+      if (art) {
+        loadArticleToEdit(art);
+      }
+    }
+  }, [editId, articles]);
+
+  const handleResetForm = () => {
+    setEditingId(null);
+    setTitle('');
+    setSubtitle('');
+    setExcerpt('');
+    setCategory('wealth-investing');
+    setCoverImage(presetPhotos[0].url);
+    setTags('Wealth, Strategy, Mindset');
+    setCustomSlug('');
+    setSeoTitle('');
+    setSeoDescription('');
+    setStatus('published');
+    setKeyTakeaways([
+      'First strategic takeaway for readers.',
+      'Second actionable principle to apply immediately.',
+    ]);
+    setBlocks([
+      {
+        id: 'blk-init-h1',
+        type: 'heading',
+        text: 'The Core Principle',
+        level: 2,
+      },
+      {
+        id: 'blk-init-p1',
+        type: 'paragraph',
+        text: 'Write your opening insights and introduction here...',
+      },
+    ]);
+    showToast('Editor reset for new blog.', 'info');
+  };
+
+  const handleSaveOrPublish = (publishStatus: 'published' | 'draft') => {
+    if (!title.trim()) {
+      showToast('Please enter an article title.', 'error');
+      return;
+    }
+
+    const payload: Article = {
+      ...articleDraft,
+      status: publishStatus,
+    };
+
+    if (editingId) {
+      updateArticle(payload);
+      showToast(
+        publishStatus === 'draft'
+          ? '💾 Saved blog as draft!'
+          : '🎉 Blog post updated and published live!',
+        'success'
+      );
+      setEditingId(null);
+    } else {
+      addArticle(payload);
+      try {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      } catch {}
+      showToast(
+        publishStatus === 'draft'
+          ? '💾 Blog saved to drafts!'
+          : '🎉 New article published live to website!',
+        'success'
+      );
+    }
+
+    if (publishStatus === 'published') {
+      router.push(`/articles/${payload.slug}`);
+    } else {
+      setActiveTab('manage');
+    }
+  };
+
+  const handleDelete = (art: Article) => {
+    if (window.confirm(`Are you sure you want to permanently delete "${art.title}"?`)) {
+      deleteArticle(art.id);
+      if (editingId === art.id) {
+        handleResetForm();
+      }
+      showToast(`Deleted "${art.title.slice(0, 25)}..."`, 'info');
+    }
+  };
+
+  const handleCopyJSON = () => {
+    const jsonStr = JSON.stringify(articleDraft, null, 2);
+    navigator.clipboard.writeText(jsonStr);
+    setCopiedJson(true);
+    showToast('Article JSON copied to clipboard!', 'success');
+    setTimeout(() => setCopiedJson(false), 2000);
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === 'gulfraz123') {
+      sessionStorage.setItem('gulfraz_admin_session', 'true');
+      setIsAuthenticated(true);
+      setPassword('');
+      showToast('Welcome to Gulfraz Insights Studio!', 'success');
+    } else {
+      showToast('Incorrect access code.', 'error');
+    }
+  };
+
+  const handleLogout = () => {
+    try {
+      sessionStorage.removeItem('gulfraz_admin_session');
+    } catch {}
+    setIsAuthenticated(false);
+    setPassword('');
+    showToast('You have logged out of Admin Studio.', 'info');
+  };
+
+  // MongoDB & Firebase handlers
   const handleTestAndSaveMongo = async () => {
     if (!mongoUri.trim()) {
       showToast('Please enter your MongoDB Atlas connection string.', 'error');
@@ -210,7 +563,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
   };
 
   const handleDisconnectMongo = () => {
-    if (window.confirm('Disconnect from MongoDB Atlas? The site will fallback to local storage.')) {
+    if (window.confirm('Disconnect from MongoDB Atlas?')) {
       try {
         localStorage.removeItem('gulfraz_mongodb_uri');
       } catch {}
@@ -241,7 +594,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
     }
   };
 
-  const handleAutoParse = (text: string) => {
+  const handleAutoParseFirebase = (text: string) => {
     setRawConfigText(text);
     try {
       const extract = (key: string) => {
@@ -256,48 +609,46 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
       const messagingSenderId = extract('messagingSenderId');
       const appId = extract('appId');
 
-      let parsedCount = 0;
-      if (apiKey) { setFbApiKey(apiKey); parsedCount++; }
-      if (projectId) { setFbProjectId(projectId); parsedCount++; }
-      if (authDomain) { setFbAuthDomain(authDomain); parsedCount++; }
-      if (storageBucket) { setFbStorageBucket(storageBucket); parsedCount++; }
-      if (messagingSenderId) { setFbSenderId(messagingSenderId); parsedCount++; }
-      if (appId) { setFbAppId(appId); parsedCount++; }
+      if (apiKey) setFbApiKey(apiKey);
+      if (projectId) setFbProjectId(projectId);
+      if (authDomain) setFbAuthDomain(authDomain);
+      if (storageBucket) setFbStorageBucket(storageBucket);
+      if (messagingSenderId) setFbSenderId(messagingSenderId);
+      if (appId) setFbAppId(appId);
 
-      if (parsedCount >= 2) {
-        showToast('Extracted Firebase credentials successfully!', 'success');
+      if (apiKey && projectId) {
+        showToast('Successfully extracted Firebase credentials!', 'success');
       }
     } catch {}
   };
 
-  const handleSaveFirebase = async () => {
-    if (!fbApiKey.trim() || !fbProjectId.trim()) {
-      showToast('Please provide at least an API Key and Project ID.', 'error');
+  const handleSaveFirebaseConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fbApiKey || !fbProjectId) {
+      showToast('Please provide at least the API Key and Project ID.', 'error');
       return;
     }
-    const config: FirebaseConfig = {
+    const config = {
       apiKey: fbApiKey.trim(),
       projectId: fbProjectId.trim(),
-      authDomain: fbAuthDomain.trim() || `${fbProjectId.trim()}.firebaseapp.com`,
-      storageBucket: fbStorageBucket.trim() || `${fbProjectId.trim()}.appspot.com`,
+      authDomain: fbAuthDomain.trim(),
+      storageBucket: fbStorageBucket.trim(),
       messagingSenderId: fbSenderId.trim(),
       appId: fbAppId.trim(),
     };
-
-    const saved = saveFirebaseConfig(config);
-    if (saved) {
+    saveFirebaseConfig(config);
+    showToast('Firebase configuration saved! Connecting to Firestore...', 'info');
+    try {
       await refreshFromFirebase();
-      try {
-        confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
-      } catch {}
-      showToast('🔥 Connected to Firebase Firestore Database successfully!', 'success');
-    } else {
-      showToast('Could not initialize Firebase with these credentials. Please check details.', 'error');
+      confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+      showToast('🔥 Connected to Firebase Firestore successfully!', 'success');
+    } catch (err: any) {
+      showToast(`Saved locally. Network/Auth error: ${err?.message || 'Check Firestore Rules'}`, 'error');
     }
   };
 
   const handleDisconnectFirebase = () => {
-    if (window.confirm('Are you sure you want to disconnect from Firebase? The site will fallback to local storage.')) {
+    if (window.confirm('Are you sure you want to disconnect from Firebase?')) {
       clearFirebaseConfig();
       setFbApiKey('');
       setFbProjectId('');
@@ -310,7 +661,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
     }
   };
 
-  const handleSyncAllEssays = async () => {
+  const handleSyncAllEssaysFirebase = async () => {
     if (!isFirebaseConfigured()) {
       showToast('Please connect your Firebase credentials first.', 'error');
       return;
@@ -332,223 +683,6 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
     } finally {
       setSyncingAll(false);
     }
-  };
-
-  const loadArticleToEdit = (art: Article) => {
-    setEditingId(art.id);
-    setTitle(art.title);
-    setSubtitle(art.subtitle || '');
-    setExcerpt(art.excerpt || art.subtitle || '');
-    setCategory(art.category);
-    setCoverImage(art.coverImage);
-    setTags(art.tags.join(', '));
-    setKeyTakeaways(art.keyTakeaways && art.keyTakeaways.length > 0 ? art.keyTakeaways : ['']);
-
-    setSections(
-      art.sections && art.sections.length > 0
-        ? art.sections.map((s, idx) => ({
-            id: s.id || `section-${idx + 1}`,
-            title: s.title || '',
-            contentText: Array.isArray(s.content) ? s.content.join('\n\n') : s.content || '',
-            quoteText: s.quote?.text || '',
-            quoteAuthor: s.quote?.author || 'Gulfraz Insights',
-          }))
-        : [
-            {
-              id: 'section-1',
-              title: 'The Core Principle',
-              contentText: 'Write your content here...',
-            },
-          ]
-    );
-
-    setActiveTab('write');
-    showToast(`Loaded "${art.title.slice(0, 30)}..." for editing`, 'info');
-  };
-
-  useEffect(() => {
-    if (editId && articles.length > 0) {
-      const art = articles.find((a) => a.id === editId || a.slug === editId);
-      if (art) {
-        loadArticleToEdit(art);
-      }
-    }
-  }, [editId, articles]);
-
-  const handleResetForm = () => {
-    setEditingId(null);
-    setTitle('');
-    setSubtitle('');
-    setExcerpt('');
-    setCategory('wealth');
-    setCoverImage(presetPhotos[0].url);
-    setTags('Wealth, Strategy, Mindset');
-    setKeyTakeaways([
-      'First core strategic takeaway for readers.',
-      'Second actionable principle to apply immediately.',
-    ]);
-    setSections([
-      {
-        id: 'section-1',
-        title: 'The Core Principle',
-        contentText: 'Write your content here...',
-      },
-    ]);
-    showToast('Editing cancelled. Editor reset for new blog.', 'info');
-  };
-
-  // Estimated read time
-  const readTimeCalculated = useMemo(() => {
-    const totalWords = (
-      title +
-      ' ' +
-      subtitle +
-      ' ' +
-      sections.map((s) => s.contentText).join(' ')
-    )
-      .trim()
-      .split(/\s+/).length;
-    return `${Math.max(1, Math.ceil(totalWords / 180))} min read`;
-  }, [title, subtitle, sections]);
-
-  // Article object representation
-  const articleDraft = useMemo((): Article => {
-    const existing = editingId ? articles.find((a) => a.id === editingId) : null;
-    const slugCalculated = (title || 'untitled-insight')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
-
-    return {
-      id: editingId || `custom-${Date.now()}`,
-      slug: slugCalculated,
-      title: title || 'Untitled Strategic Insight',
-      subtitle: subtitle || 'Brief overview of this insight',
-      excerpt: excerpt || subtitle || 'A practical breakdown of key ideas.',
-      category,
-      author,
-      publishedAt:
-        existing?.publishedAt ||
-        new Date().toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        }),
-      readTime: readTimeCalculated,
-      coverImage: coverImage || presetPhotos[0].url,
-      tags: tags
-        .split(',')
-        .map((t) => t.trim().replace(/^#/, ''))
-        .filter(Boolean),
-      featured: existing?.featured || false,
-      trending: existing?.trending || true,
-      views: existing?.views || 1,
-      claps: existing?.claps || 0,
-      keyTakeaways: keyTakeaways.filter((t) => t.trim() !== ''),
-      sections: sections.map((s) => ({
-        id: s.id,
-        title: s.title,
-        content: s.contentText.split('\n\n').filter((p) => p.trim() !== ''),
-        quote: s.quoteText
-          ? {
-              text: s.quoteText,
-              author: s.quoteAuthor || 'Gulfraz Insights',
-            }
-          : undefined,
-      })),
-    };
-  }, [
-    editingId,
-    articles,
-    title,
-    subtitle,
-    excerpt,
-    category,
-    readTimeCalculated,
-    coverImage,
-    tags,
-    keyTakeaways,
-    sections,
-  ]);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password === 'gulfraz123') {
-      sessionStorage.setItem('gulfraz_admin_session', 'true');
-      setIsAuthenticated(true);
-      setPassword('');
-      showToast('Welcome to Gulfraz Insights Studio!', 'success');
-    } else {
-      showToast('Incorrect access code.', 'error');
-    }
-  };
-
-  const handleLogout = () => {
-    try {
-      sessionStorage.removeItem('gulfraz_admin_session');
-    } catch {}
-    setIsAuthenticated(false);
-    setPassword('');
-    showToast('You have successfully logged out of Admin Studio.', 'info');
-  };
-
-  const handlePublishOrUpdate = () => {
-    if (!title.trim()) {
-      showToast('Please enter an article title.', 'error');
-      return;
-    }
-
-    if (editingId) {
-      updateArticle(articleDraft);
-      showToast('🎉 Blog post updated and saved live!', 'success');
-      setEditingId(null);
-    } else {
-      addArticle(articleDraft);
-      try {
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      } catch {}
-      showToast('🎉 New article published live to website!', 'success');
-    }
-
-    router.push(`/articles/${articleDraft.slug}`);
-  };
-
-  const handleDelete = (art: Article) => {
-    if (window.confirm(`Are you sure you want to permanently delete "${art.title}"?`)) {
-      deleteArticle(art.id);
-      if (editingId === art.id) {
-        handleResetForm();
-      }
-      showToast(`Deleted "${art.title.slice(0, 25)}..."`, 'info');
-    }
-  };
-
-  const handleCopyJSON = () => {
-    const jsonStr = JSON.stringify(articleDraft, null, 2);
-    navigator.clipboard.writeText(jsonStr);
-    setCopiedJson(true);
-    showToast('Article JSON copied to clipboard!', 'success');
-    setTimeout(() => setCopiedJson(false), 2000);
-  };
-
-  // Section modifiers
-  const addSection = () => {
-    setSections((prev) => [
-      ...prev,
-      {
-        id: `section-${prev.length + 1}`,
-        title: 'New Section Title',
-        contentText: 'Write your content here...',
-      },
-    ]);
-  };
-
-  const removeSection = (idx: number) => {
-    if (sections.length <= 1) {
-      showToast('At least one section is required.', 'error');
-      return;
-    }
-    setSections((prev) => prev.filter((_, i) => i !== idx));
   };
 
   if (!isAuthenticated) {
@@ -606,7 +740,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                 Editing Existing Blog Post
               </p>
               <p className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-xl">
-                {title}
+                {title || 'Untitled Post'}
               </p>
             </div>
           </div>
@@ -619,7 +753,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
         </div>
       )}
 
-      {/* Top Controls Bar */}
+      {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm mb-8">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-bold shrink-0">
@@ -628,11 +762,11 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white truncate">
-                Gulfraz Insights Admin Studio
+                Gulfraz Insights Content Studio
               </h1>
               {mongoActive ? (
                 <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                  🍃 MongoDB Atlas Live
+                  🍃 MongoDB Live
                 </span>
               ) : firebaseActive ? (
                 <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
@@ -645,7 +779,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
               )}
             </div>
             <p className="text-xs text-slate-500 truncate">
-              {editingId ? 'Updating blog article' : 'Composing new article'} • Instant auto-publishing
+              Unlimited Paragraphs • Quotes Anywhere • Unlimited Local Images
             </p>
           </div>
         </div>
@@ -655,44 +789,44 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
           <div className="flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveTab('write')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
                 activeTab === 'write'
                   ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <Edit3 className="w-3.5 h-3.5" /> {editingId ? 'Edit Post' : 'Write'}
+              <Edit3 className="w-3.5 h-3.5" /> {editingId ? 'Edit Post' : 'Block Editor'}
             </button>
             <button
               onClick={() => setActiveTab('preview')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
                 activeTab === 'preview'
                   ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <Eye className="w-3.5 h-3.5" /> Preview
+              <Eye className="w-3.5 h-3.5" /> Live Preview
             </button>
             <button
               onClick={() => setActiveTab('manage')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
                 activeTab === 'manage'
                   ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
-              <FileText className="w-3.5 h-3.5" /> All ({articles.length})
+              <FileText className="w-3.5 h-3.5" /> All Essays ({articles.length})
             </button>
             <button
               onClick={() => setActiveTab('database')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
                 activeTab === 'database'
                   ? 'bg-white dark:bg-slate-900 text-amber-500 shadow-sm'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
               <Database className="w-3.5 h-3.5 text-amber-500" />
-              <span>Firebase DB</span>
+              <span>Databases</span>
               {(firebaseActive || mongoActive) && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               )}
@@ -700,20 +834,19 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href="/"
-              className="px-2.5 sm:px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
-              title="Return to public website view"
+            <button
+              onClick={() => handleSaveOrPublish('draft')}
+              className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              title="Save as Draft"
             >
-              <ExternalLink className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="hidden md:inline">View Website</span>
-            </Link>
+              <FileDown className="w-3.5 h-3.5" /> Save Draft
+            </button>
 
             <button
-              onClick={handlePublishOrUpdate}
-              className="px-3.5 sm:px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95"
+              onClick={() => handleSaveOrPublish('published')}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95"
             >
-              <Save className="w-3.5 h-3.5" /> {editingId ? 'Update' : 'Publish'}
+              <Save className="w-3.5 h-3.5" /> {editingId ? 'Update & Publish' : 'Publish Live'}
             </button>
 
             <button
@@ -722,25 +855,32 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
               title="Log Out of Admin Panel"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Log Out</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mode 1: Preview Tab */}
+      {/* Mode 1: Live Preview Tab */}
       {activeTab === 'preview' ? (
         <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden p-4 sm:p-8">
           <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 dark:border-slate-800">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-              <Eye className="w-4 h-4" /> Real-Time Preview
+              <Eye className="w-4 h-4" /> Live Production Reading Preview
             </span>
-            <button
-              onClick={handlePublishOrUpdate}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500"
-            >
-              {editingId ? 'Looks Great! Update Blog →' : 'Looks Great! Publish Now →'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleSaveOrPublish('draft')}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-200"
+              >
+                Save as Draft
+              </button>
+              <button
+                onClick={() => handleSaveOrPublish('published')}
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500"
+              >
+                {editingId ? 'Update & Publish Live →' : 'Publish Live to Website →'}
+              </button>
+            </div>
           </div>
           <ArticleDetail article={articleDraft} />
         </div>
@@ -749,54 +889,46 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                All Published Blogs ({articles.length})
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                All Published Essays ({articles.length})
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Edit text, photos, headings, or permanently delete any blog post.
+              <p className="text-xs sm:text-sm text-slate-500">
+                Manage, edit in block editor, or remove essays from your collection.
               </p>
             </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                onClick={() => {
-                  handleResetForm();
-                  setActiveTab('write');
-                }}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5" /> Compose New Blog
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-3 py-2 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
-                title="Log Out of Admin Panel"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Log Out</span>
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                handleResetForm();
+                setActiveTab('write');
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto shadow-md"
+            >
+              <Plus className="w-4 h-4" /> Create New Essay
+            </button>
           </div>
 
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {articles.map((art) => (
               <div
                 key={art.id}
-                className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+                className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:bg-slate-50 dark:hover:bg-slate-850/50 p-3 rounded-2xl transition-colors"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
+                <div className="flex items-center gap-4 min-w-0">
                   <img
                     src={art.coverImage}
                     alt={art.title}
-                    className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-slate-800"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 border border-slate-200 dark:border-slate-700"
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                        {art.category}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getCategoryBadgeClass(art.category)}`}>
+                        {getCategoryLabel(art.category)}
                       </span>
-                      <span className="text-slate-300 dark:text-slate-700">•</span>
-                      <span className="text-xs text-slate-400">{art.readTime}</span>
-                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      {art.status === 'draft' && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                          Draft
+                        </span>
+                      )}
                       <span className="text-xs text-slate-400">{art.publishedAt}</span>
                     </div>
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
@@ -816,14 +948,14 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                   <button
                     onClick={() => loadArticleToEdit(art)}
                     className="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-xs font-bold border border-amber-500/30 flex items-center gap-1 transition-colors"
-                    title="Edit blog content, title, or photos"
+                    title="Edit blog in block editor"
                   >
-                    <Edit3 className="w-3.5 h-3.5" /> Edit
+                    <Edit3 className="w-3.5 h-3.5" /> Edit Blocks
                   </button>
                   <button
                     onClick={() => handleDelete(art)}
                     className="p-1.5 text-slate-400 hover:text-red-500 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors"
-                    title="Permanently delete this blog"
+                    title="Delete this blog"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -833,9 +965,9 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
           </div>
         </div>
       ) : activeTab === 'database' ? (
-        /* Mode 4: Database Management Tab (MongoDB Atlas & Compass + Firebase) */
+        /* Mode 3: Databases Tab */
         <div className="space-y-8">
-          {/* Top Engine Selector Tabs */}
+          {/* Engine Selector */}
           <div className="flex items-center gap-3 p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm w-fit">
             <button
               onClick={() => setDbMode('firebase')}
@@ -845,7 +977,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <span className="text-base">🔥</span> Firebase Cloud Firestore
+              <span>🔥 Firebase Firestore</span>
               {firebaseActive && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>}
             </button>
             <button
@@ -856,23 +988,18 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <span className="text-base">🍃</span> MongoDB Atlas & Compass
+              <span>🍃 MongoDB Atlas & Compass</span>
               {mongoActive && <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>}
             </button>
           </div>
 
-          {/* ENGINE 1: MONGODB ATLAS & COMPASS */}
+          {/* MongoDB Panel */}
           {dbMode === 'mongodb' ? (
             <div className="space-y-8">
-              {/* Status & Overview Card */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-start sm:items-center gap-4">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-2xl ${
-                      mongoActive
-                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 shadow-emerald-500/10'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
-                    }`}>
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
                       🍃
                     </div>
                     <div>
@@ -883,16 +1010,16 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                         {mongoActive ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                            Connected & Live
+                            Connected & Live ({mongoDocCount ?? articles.length} documents)
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                            Not Connected (Local Mode)
+                            Local Mode
                           </span>
                         )}
                       </div>
-                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
-                        Store all your essays in MongoDB Atlas. Use <strong>MongoDB Compass</strong> desktop app on your PC to inspect, query, and edit your blogs in a visual database interface.
+                      <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
+                        Store and query all essays directly in MongoDB Atlas and MongoDB Compass.
                       </p>
                     </div>
                   </div>
@@ -904,8 +1031,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                         refreshFromMongo();
                         showToast('Refreshed data from MongoDB Atlas', 'info');
                       }}
-                      className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2 transition-colors"
-                      title="Pull latest articles from MongoDB Atlas"
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold flex items-center gap-2"
                     >
                       <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
                     </button>
@@ -913,7 +1039,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                       <button
                         type="button"
                         onClick={handleDisconnectMongo}
-                        className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-xs font-bold flex items-center gap-2 transition-colors"
+                        className="px-3.5 py-2.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold"
                       >
                         Disconnect
                       </button>
@@ -921,190 +1047,57 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                   </div>
                 </div>
 
-                {/* 1-Click Sync All to MongoDB Card */}
                 <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <UploadCloud className="w-5 h-5 text-emerald-500" />
-                      <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                        1-Click Initial Sync: Upload All 73 Existing Essays to MongoDB Atlas
-                      </h3>
-                    </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
-                      Populates your MongoDB Atlas database (<code className="text-emerald-600 dark:text-emerald-400 font-mono">gulfraz_insights.articles</code>) with all 73 essays so you can immediately see every blog in MongoDB Compass.
+                  <div>
+                    <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                      1-Click Initial Sync to MongoDB Atlas
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Syncs all 73 essays with the new 5 categories to <code className="text-emerald-500 font-mono">gulfraz_insights.articles</code>.
                     </p>
                   </div>
-
                   <button
                     type="button"
                     onClick={handleSyncAllToMongo}
                     disabled={syncingMongo}
-                    className={`px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 shadow-lg transition-all ${
-                      syncingMongo
-                        ? 'bg-emerald-400 text-slate-950 cursor-wait'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 hover:scale-105 active:scale-95'
-                    }`}
+                    className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center gap-2"
                   >
-                    {syncingMongo ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" /> Uploading 73 Essays...
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="w-4 h-4" /> Sync All 73 Essays to MongoDB
-                      </>
-                    )}
+                    {syncingMongo ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                    <span>Upload 73 Essays to MongoDB Atlas</span>
                   </button>
                 </div>
-              </div>
 
-              {/* Configuration Form & Compass Guide Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left: Connection String Form */}
-                <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
-                      <span>🍃</span> MongoDB Atlas Connection String
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Enter your MongoDB Atlas cluster connection URI to connect your site and admin panel.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                      Connection URI (mongodb+srv://)
-                    </label>
-                    <textarea
-                      rows={3}
+                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                    MongoDB Atlas Connection URI
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
                       value={mongoUri}
                       onChange={(e) => setMongoUri(e.target.value)}
-                      placeholder="mongodb+srv://<username>:<password>@cluster0.abcde.mongodb.net/gulfraz_insights?retryWrites=true&w=majority"
-                      className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      placeholder="mongodb+srv://..."
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono"
                     />
-                    <span className="text-[11px] text-slate-400 mt-1.5 block">
-                      💡 Tip: Make sure to replace <code className="text-emerald-500 font-bold">&lt;password&gt;</code> with your actual database user password.
-                    </span>
-                  </div>
-
-                  <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
                     <button
                       type="button"
                       onClick={handleTestAndSaveMongo}
                       disabled={testingMongo}
-                      className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all hover:scale-105 active:scale-95"
+                      className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold"
                     >
-                      {testingMongo ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" /> Testing Connection...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" /> Test & Connect MongoDB Atlas
-                        </>
-                      )}
+                      {testingMongo ? 'Connecting...' : 'Connect'}
                     </button>
-                    {mongoActive && (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4" /> Connected to Database
-                      </span>
-                    )}
-                  </div>
-
-                  {mongoDocCount !== null && (
-                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-300">
-                      <strong>Database Verified:</strong> Database <code className="font-mono">gulfraz_insights</code> contains <strong>{mongoDocCount}</strong> articles in collection <code className="font-mono">articles</code>.
-                    </div>
-                  )}
-
-                  {/* 4-Step Free MongoDB Atlas Guide */}
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      How to get your free MongoDB Atlas URI in 2 minutes:
-                    </h4>
-                    <ol className="space-y-2 text-xs text-slate-600 dark:text-slate-400 list-decimal list-inside">
-                      <li>Go to <a href="https://www.mongodb.com/cloud/atlas/register" target="_blank" rel="noopener noreferrer" className="text-emerald-500 underline font-semibold">mongodb.com/cloud/atlas</a> and register a free account.</li>
-                      <li>Deploy a free <strong>M0 Cluster</strong> (100% free forever, 512MB storage).</li>
-                      <li>Under <strong>Database Access</strong>, create a username & password (e.g. <code className="font-mono">gulfraz</code>).</li>
-                      <li>Under <strong>Network Access</strong>, click <strong>Add IP Address</strong> &rarr; choose <strong>Allow Access from Anywhere (0.0.0.0/0)</strong>.</li>
-                      <li>Click <strong>Connect</strong> &rarr; <strong>Drivers</strong> &rarr; copy the connection string and paste it above!</li>
-                    </ol>
-                  </div>
-                </div>
-
-                {/* Right: MongoDB Compass Guide */}
-                <div className="lg:col-span-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-7 border border-slate-800 shadow-xl space-y-6">
-                  <div>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold mb-3 border border-emerald-500/30">
-                      🖥️
-                    </div>
-                    <h3 className="text-lg font-bold text-white mb-1">
-                      MongoDB Compass Desktop GUI
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Inspect and edit all 73 blogs visually in the official MongoDB Compass desktop application installed on your PC.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                        Step 1: Open MongoDB Compass
-                      </span>
-                      <p className="text-xs text-slate-300">
-                        Launch <strong>MongoDB Compass</strong> from your Desktop or Start Menu on your computer.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                        Step 2: Paste Connection String
-                      </span>
-                      <p className="text-xs text-slate-300">
-                        Paste the exact same <code className="text-emerald-400 font-mono">mongodb+srv://...</code> URI into the Compass connection field.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                        Step 3: Click Connect
-                      </span>
-                      <p className="text-xs text-slate-300">
-                        Compass will connect to your cluster and show all your databases.
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                        Step 4: Explore All Blogs
-                      </span>
-                      <p className="text-xs text-slate-300">
-                        Click on database <strong className="text-white">gulfraz_insights</strong> &rarr; collection <strong className="text-white">articles</strong>. You will see every essay with JSON structure, interactive editing, search filters, and real-time viewing!
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-800">
-                    <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>Every blog you compose or update in Admin Studio will automatically appear in MongoDB Compass!</span>
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            /* ENGINE 2: FIREBASE FIRESTORE */
+            /* Firebase Panel */
             <div className="space-y-8">
-              {/* Status & Overview Card */}
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-start sm:items-center gap-4">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
-                      firebaseActive
-                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30 shadow-amber-500/10'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
-                    }`}>
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg bg-amber-500/10 text-amber-500 border border-amber-500/30">
                       <Database className="w-7 h-7" />
                     </div>
                     <div>
@@ -1114,17 +1107,16 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                         </h2>
                         {firebaseActive ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
                             Connected & Live
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400 border border-slate-500/20">
-                            Local Mode (Not Connected)
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-500/10 text-slate-400">
+                            Local Mode
                           </span>
                         )}
                       </div>
-                      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
-                        Connect your Firebase Firestore project to automatically store every blog post in the cloud.
+                      <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
+                        Store and sync all your blogs in Google Firebase Cloud Firestore.
                       </p>
                     </div>
                   </div>
@@ -1136,8 +1128,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                         refreshFromFirebase();
                         showToast('Refreshed data from Firebase Firestore', 'info');
                       }}
-                      className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2 transition-colors"
-                      title="Pull latest articles from Firestore"
+                      className="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold flex items-center gap-2"
                     >
                       <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
                     </button>
@@ -1145,7 +1136,7 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                       <button
                         type="button"
                         onClick={handleDisconnectFirebase}
-                        className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40 text-xs font-bold flex items-center gap-2 transition-colors"
+                        className="px-3.5 py-2.5 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold"
                       >
                         Disconnect
                       </button>
@@ -1153,156 +1144,89 @@ Explain the concept clearly and provide real-world examples or frameworks.`,
                   </div>
                 </div>
 
-                {/* Quick Sync All Card */}
                 <div className="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <UploadCloud className="w-5 h-5 text-amber-500" />
-                      <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
-                        1-Click Initial Sync: Upload All 73 Existing Essays to Firebase
-                      </h3>
-                    </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
-                      Populate your Firestore collection (<code className="text-amber-600 dark:text-amber-400 font-mono">articles</code>) with all 73 Gulfraz Insights essays so your database is immediately ready.
+                  <div>
+                    <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+                      1-Click Sync All Essays to Firebase
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Syncs all 73 essays with the 5 new categories to Firestore.
                     </p>
                   </div>
-
                   <button
                     type="button"
-                    onClick={handleSyncAllEssays}
+                    onClick={handleSyncAllEssaysFirebase}
                     disabled={syncingAll}
-                    className={`px-5 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shrink-0 shadow-lg transition-all ${
-                      syncingAll
-                        ? 'bg-amber-400 text-slate-950 cursor-wait'
-                        : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20 hover:scale-105 active:scale-95'
-                    }`}
+                    className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-2"
                   >
-                    {syncingAll ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" /> Syncing 73 Essays...
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="w-4 h-4" /> Sync All 73 Essays to Database
-                      </>
-                    )}
+                    {syncingAll ? <RefreshCw className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                    <span>Sync All 73 Essays to Firebase</span>
                   </button>
                 </div>
-              </div>
 
-              {/* Configuration Form Card */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+                <form onSubmit={handleSaveFirebaseConfig} className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
-                      Firebase Project Credentials
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Paste your Firebase web config snippet or enter the fields below.
-                    </p>
-                  </div>
-
-                  {/* Quick Auto-Parser Box */}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-amber-600 mb-2">
                       ⚡ Quick Paste (Auto-Detector)
                     </label>
                     <textarea
-                      rows={3}
+                      rows={2}
                       value={rawConfigText}
-                      onChange={(e) => handleAutoParse(e.target.value)}
-                      placeholder={`Paste the firebaseConfig snippet here, e.g.:
-const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  projectId: "gulfraz-insights",
-  ...
-};`}
-                      className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 placeholder:text-slate-400"
+                      onChange={(e) => handleAutoParseFirebase(e.target.value)}
+                      placeholder="Paste firebaseConfig code here..."
+                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono"
                     />
                   </div>
 
-                  {/* Form Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                        API Key <span className="text-amber-500">*</span>
-                      </label>
+                      <label className="block text-xs font-bold uppercase text-slate-600 mb-1">API Key</label>
                       <input
                         type="text"
                         value={fbApiKey}
                         onChange={(e) => setFbApiKey(e.target.value)}
-                        placeholder="AIzaSy..."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs font-mono"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                        Project ID <span className="text-amber-500">*</span>
-                      </label>
+                      <label className="block text-xs font-bold uppercase text-slate-600 mb-1">Project ID</label>
                       <input
                         type="text"
                         value={fbProjectId}
                         onChange={(e) => setFbProjectId(e.target.value)}
-                        placeholder="e.g. gulfraz-insights"
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs font-mono"
                       />
                     </div>
                   </div>
 
-                  {/* Action Button */}
-                  <div className="pt-4 flex flex-col sm:flex-row items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleSaveFirebase}
-                      className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 transition-all hover:scale-105 active:scale-95"
-                    >
-                      <Save className="w-4 h-4" /> Save & Connect Firebase
-                    </button>
-                    {firebaseActive && (
-                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4" /> Database is active
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Quick 3-Step Setup Guide */}
-                <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
-                  <h3 className="font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500" /> Firestore Rules
-                  </h3>
-                  <pre className="p-3 rounded-xl bg-slate-950 text-emerald-400 text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
-{`rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /articles/{document=**} {
-      allow read, write: if true;
-    }
-  }
-}`}
-                  </pre>
-                </div>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md"
+                  >
+                    Save & Connect Firebase
+                  </button>
+                </form>
               </div>
             </div>
           )}
         </div>
       ) : (
-        /* Mode 3: Write Tab */
+        /* Mode 4: Advanced Block-Based Editor (Very Important) */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Form (8 Cols) */}
-          <div className="lg:col-span-8 space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          {/* Main Content Area (8 Cols) */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Essential Metadata Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                  Article Title
+                  Essay Title <span className="text-emerald-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. The Mathematics of Asymmetric Wealth Creation"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base sm:text-lg font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="e.g. The Secrets of Millionaire Fastlane: Core Values to Riches"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-lg sm:text-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
@@ -1314,26 +1238,26 @@ service cloud.firestore {
                   type="text"
                   value={subtitle}
                   onChange={(e) => setSubtitle(e.target.value)}
-                  placeholder="e.g. Why linear effort caps your earnings and how to construct compounding systems."
+                  placeholder="e.g. A deep dive into scalable wealth systems, key takeaways, and mental models."
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                  Short Excerpt (For card previews)
+                  Short Excerpt (Card Summary)
                 </label>
                 <textarea
                   rows={2}
                   value={excerpt}
                   onChange={(e) => setExcerpt(e.target.value)}
-                  placeholder="A concise 2-sentence summary that hooks readers on social feeds..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="Concise 2-sentence summary for previews..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 resize-none"
                 />
               </div>
             </div>
 
-            {/* Key Takeaways Box */}
+            {/* Strategic Key Takeaways Box */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -1381,131 +1305,622 @@ service cloud.firestore {
               </div>
             </div>
 
-            {/* Article Body Sections */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Article Body Sections ({sections.length})
-                </h3>
-                <button
-                  type="button"
-                  onClick={addSection}
-                  className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Add New Section
-                </button>
+            {/* BLOCK-BASED ARTICLE BUILDER */}
+            <div className="space-y-4">
+              {/* Toolbar */}
+              <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-lg border border-slate-800 flex flex-wrap items-center justify-between gap-3 sticky top-4 z-20">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    Add Content Block:
+                  </span>
+                  <span className="text-xs text-slate-400">({blocks.length} blocks total)</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('paragraph')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Add unlimited paragraphs"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-emerald-400" /> Paragraph
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('heading')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Add Heading (H1, H2, H3)"
+                  >
+                    <Heading className="w-3.5 h-3.5 text-cyan-400" /> Heading
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('subheading')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Add Subheading"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-indigo-400" /> Subheading
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('image')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Add image anywhere (upload or URL)"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-amber-400" /> Image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('quote')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Insert quote anywhere"
+                  >
+                    <QuoteIcon className="w-3.5 h-3.5 text-rose-400" /> Quote
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('bullet-list')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Add Bullet List"
+                  >
+                    <List className="w-3.5 h-3.5 text-violet-400" /> Bullets
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('numbered-list')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Add Numbered List"
+                  >
+                    <ListOrdered className="w-3.5 h-3.5 text-teal-400" /> Numbers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('divider')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                    title="Add Divider"
+                  >
+                    <Minus className="w-3.5 h-3.5 text-slate-400" /> Divider
+                  </button>
+                </div>
               </div>
 
-              {sections.map((section, idx) => (
-                <div
-                  key={section.id}
-                  className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Section {idx + 1}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeSection(idx)}
-                      className="text-xs text-red-500 hover:underline flex items-center gap-1"
+              {/* Render Every Block */}
+              <div className="space-y-4">
+                {blocks.map((block, index) => {
+                  return (
+                    <div
+                      key={block.id || index}
+                      className="group bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all"
                     >
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </button>
-                  </div>
+                      {/* Block Header Controls */}
+                      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono font-bold flex items-center justify-center text-[11px]">
+                            {index + 1}
+                          </span>
+                          <span className="font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            {block.type.toUpperCase()} BLOCK
+                          </span>
+                        </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
-                      Section Heading
-                    </label>
-                    <input
-                      type="text"
-                      value={section.title}
-                      onChange={(e) => {
-                        const next = [...sections];
-                        next[idx].title = e.target.value;
-                        setSections(next);
-                      }}
-                      placeholder="Section Heading"
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+                        {/* Order & Action Buttons */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveBlock(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                            title="Move Block Up"
+                          >
+                            <MoveUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveBlock(index, 'down')}
+                            disabled={index === blocks.length - 1}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                            title="Move Block Down"
+                          >
+                            <MoveDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateBlock(index)}
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors"
+                            title="Duplicate Block"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBlock(index)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-400 hover:text-red-500 transition-colors"
+                            title="Delete Block"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
-                      Content Paragraphs (Double Enter for new paragraph)
-                    </label>
-                    <textarea
-                      rows={4}
-                      value={section.contentText}
-                      onChange={(e) => {
-                        const next = [...sections];
-                        next[idx].contentText = e.target.value;
-                        setSections(next);
-                      }}
-                      placeholder="Write this section's core insights and text..."
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+                      {/* Block Specific Form Elements */}
+                      {block.type === 'paragraph' && (
+                        <div>
+                          <textarea
+                            rows={4}
+                            value={block.text || ''}
+                            onChange={(e) => handleUpdateBlock(index, { text: e.target.value })}
+                            placeholder="Write your paragraph here. You can add as many paragraphs as you want without limits..."
+                            className="w-full px-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm leading-relaxed text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                        Optional Blockquote
-                      </label>
-                      <input
-                        type="text"
-                        value={section.quoteText || ''}
-                        onChange={(e) => {
-                          const next = [...sections];
-                          next[idx].quoteText = e.target.value;
-                          setSections(next);
-                        }}
-                        placeholder="Quote text..."
-                        className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none"
-                      />
+                      {block.type === 'heading' && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-500">Heading Level:</span>
+                            <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
+                              {[1, 2, 3].map((lvl) => (
+                                <button
+                                  key={lvl}
+                                  type="button"
+                                  onClick={() => handleUpdateBlock(index, { level: lvl as 1 | 2 | 3 })}
+                                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                                    (block.level || 2) === lvl
+                                      ? 'bg-emerald-600 text-white shadow-sm'
+                                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                                  }`}
+                                >
+                                  H{lvl}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <input
+                            type="text"
+                            value={block.text || ''}
+                            onChange={(e) => handleUpdateBlock(index, { text: e.target.value })}
+                            placeholder="Heading Text (e.g., The Psychology of Market Cycles)..."
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      )}
+
+                      {block.type === 'subheading' && (
+                        <div>
+                          <input
+                            type="text"
+                            value={block.text || ''}
+                            onChange={(e) => handleUpdateBlock(index, { text: e.target.value })}
+                            placeholder="Subheading / section lead..."
+                            className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm italic font-medium text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      )}
+
+                      {block.type === 'image' && (
+                        <div className="space-y-4">
+                          {/* Image preview */}
+                          {block.url ? (
+                            <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-72 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                              <img
+                                src={block.url}
+                                alt={block.alt || 'Block Image'}
+                                className="w-full h-auto max-h-72 object-contain"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateBlock(index, { url: '' })}
+                                className="absolute top-3 right-3 p-1.5 rounded-xl bg-slate-900/80 text-white hover:bg-red-600 transition-colors shadow"
+                                title="Remove Image"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="p-6 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center space-y-3">
+                              <ImageIcon className="w-10 h-10 text-slate-400 mx-auto" />
+                              <div>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                  Upload Image from Computer or Enter URL
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                  Supports PNG, JPG, WebP, GIF. Unlimited images allowed anywhere.
+                                </p>
+                              </div>
+
+                              <div className="flex items-center justify-center gap-3 pt-2">
+                                <label className="cursor-pointer px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all hover:scale-105">
+                                  <Upload className="w-3.5 h-3.5" />
+                                  <span>Upload from Computer</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleImageUploadForBlock(e, index)}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Image URL input fallback */}
+                          <div>
+                            <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                              Image URL (Or replace uploaded photo)
+                            </label>
+                            <input
+                              type="url"
+                              value={block.url || ''}
+                              onChange={(e) => handleUpdateBlock(index, { url: e.target.value })}
+                              placeholder="https://images.unsplash.com/..."
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none"
+                            />
+                          </div>
+
+                          {/* Caption & Alt text */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                                Caption (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={block.caption || ''}
+                                onChange={(e) => handleUpdateBlock(index, { caption: e.target.value })}
+                                placeholder="e.g. Compound interest curve over 30 years"
+                                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                                ALT Text (SEO Friendly)
+                              </label>
+                              <input
+                                type="text"
+                                value={block.alt || ''}
+                                onChange={(e) => handleUpdateBlock(index, { alt: e.target.value })}
+                                placeholder="e.g. Visual illustration of wealth compounding"
+                                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Alignment & Sizing */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                            <div>
+                              <span className="block text-[11px] font-bold uppercase text-slate-500 mb-1.5">
+                                Image Alignment:
+                              </span>
+                              <div className="flex gap-1.5">
+                                {[
+                                  { val: 'left', icon: AlignLeft, label: 'Left' },
+                                  { val: 'center', icon: AlignCenter, label: 'Center' },
+                                  { val: 'right', icon: AlignRight, label: 'Right' },
+                                  { val: 'full', icon: Maximize2, label: 'Full' },
+                                ].map((item) => (
+                                  <button
+                                    key={item.val}
+                                    type="button"
+                                    onClick={() => handleUpdateBlock(index, { alignment: item.val as any })}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 border transition-all ${
+                                      (block.alignment || 'center') === item.val
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 border-emerald-500 font-bold'
+                                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                                    }`}
+                                  >
+                                    <item.icon className="w-3 h-3" /> {item.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <span className="block text-[11px] font-bold uppercase text-slate-500 mb-1.5">
+                                Image Size:
+                              </span>
+                              <div className="flex gap-1.5">
+                                {['small', 'medium', 'large', 'full'].map((sz) => (
+                                  <button
+                                    key={sz}
+                                    type="button"
+                                    onClick={() => handleUpdateBlock(index, { size: sz as any })}
+                                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold capitalize border transition-all ${
+                                      (block.size || 'large') === sz
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 border-emerald-500 font-bold'
+                                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                                    }`}
+                                  >
+                                    {sz}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {block.type === 'quote' && (
+                        <div className="space-y-3">
+                          {/* Live Quote Styled Preview */}
+                          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-slate-50 to-transparent dark:from-emerald-950/40 dark:via-slate-850 border-l-4 border-emerald-500">
+                            <QuoteIcon className="w-6 h-6 text-emerald-500 mb-2 opacity-70" />
+                            <textarea
+                              rows={2}
+                              value={block.quoteText || ''}
+                              onChange={(e) => handleUpdateBlock(index, { quoteText: e.target.value })}
+                              placeholder="Enter the quote text here..."
+                              className="w-full bg-transparent border-0 text-base italic text-slate-900 dark:text-white focus:outline-none resize-none placeholder:text-slate-400"
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
+                              <input
+                                type="text"
+                                value={block.quoteAuthor || ''}
+                                onChange={(e) => handleUpdateBlock(index, { quoteAuthor: e.target.value })}
+                                placeholder="Author name (e.g., M.J. DeMarco)"
+                                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold"
+                              />
+                              <input
+                                type="text"
+                                value={block.quoteSource || ''}
+                                onChange={(e) => handleUpdateBlock(index, { quoteSource: e.target.value })}
+                                placeholder="Source (e.g., The Millionaire Fastlane)"
+                                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {block.type === 'bullet-list' && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-slate-500">Bullet Points:</span>
+                          {(block.items || ['']).map((item, iIdx) => (
+                            <div key={iIdx} className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                              <input
+                                type="text"
+                                value={item}
+                                onChange={(e) => {
+                                  const items = [...(block.items || [''])];
+                                  items[iIdx] = e.target.value;
+                                  handleUpdateBlock(index, { items });
+                                }}
+                                placeholder="Bullet point text..."
+                                className="flex-1 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const items = (block.items || ['']).filter((_, i) => i !== iIdx);
+                                  handleUpdateBlock(index, { items: items.length > 0 ? items : [''] });
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-500"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const items = [...(block.items || ['']), ''];
+                              handleUpdateBlock(index, { items });
+                            }}
+                            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 pt-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add Point
+                          </button>
+                        </div>
+                      )}
+
+                      {block.type === 'numbered-list' && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-semibold text-slate-500">Numbered Items:</span>
+                          {(block.items || ['']).map((item, iIdx) => (
+                            <div key={iIdx} className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 font-bold text-xs flex items-center justify-center shrink-0">
+                                {iIdx + 1}
+                              </span>
+                              <input
+                                type="text"
+                                value={item}
+                                onChange={(e) => {
+                                  const items = [...(block.items || [''])];
+                                  items[iIdx] = e.target.value;
+                                  handleUpdateBlock(index, { items });
+                                }}
+                                placeholder="Numbered item text..."
+                                className="flex-1 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const items = (block.items || ['']).filter((_, i) => i !== iIdx);
+                                  handleUpdateBlock(index, { items: items.length > 0 ? items : [''] });
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-500"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const items = [...(block.items || ['']), ''];
+                              handleUpdateBlock(index, { items });
+                            }}
+                            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 pt-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add Numbered Item
+                          </button>
+                        </div>
+                      )}
+
+                      {block.type === 'divider' && (
+                        <div className="py-3 flex items-center justify-center gap-3">
+                          <div className="h-px w-24 bg-slate-300 dark:bg-slate-700" />
+                          <Sparkles className="w-4 h-4 text-emerald-500" />
+                          <div className="h-px w-24 bg-slate-300 dark:bg-slate-700" />
+                        </div>
+                      )}
+
+                      {/* Quick insert button beneath this block */}
+                      <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between opacity-80 group-hover:opacity-100">
+                        <span className="text-[10px] text-slate-400">Insert block below:</span>
+                        <div className="flex items-center gap-1 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => handleAddBlock('paragraph', index)}
+                            className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors"
+                          >
+                            + Paragraph
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddBlock('heading', index)}
+                            className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors"
+                          >
+                            + Heading
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddBlock('quote', index)}
+                            className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors"
+                          >
+                            + Quote
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddBlock('image', index)}
+                            className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors"
+                          >
+                            + Image
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
-                        Quote Author / Citation
-                      </label>
-                      <input
-                        type="text"
-                        value={section.quoteAuthor || ''}
-                        onChange={(e) => {
-                          const next = [...sections];
-                          next[idx].quoteAuthor = e.target.value;
-                          setSections(next);
-                        }}
-                        placeholder="e.g. Gulfraz Insights"
-                        className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Big Add Block Menu */}
+              <div className="p-6 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3 bg-white/40 dark:bg-slate-900/40">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Append New Content Block
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('paragraph')}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm hover:scale-105 transition-transform"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Paragraph
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('heading')}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm hover:scale-105 transition-transform"
+                  >
+                    <Heading className="w-3.5 h-3.5" /> Add Heading
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('quote')}
+                    className="px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm hover:scale-105 transition-transform"
+                  >
+                    <QuoteIcon className="w-3.5 h-3.5" /> Add Quote Anywhere
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('image')}
+                    className="px-3.5 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm hover:scale-105 transition-transform"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" /> Add Image Anywhere
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('bullet-list')}
+                    className="px-3 py-2 rounded-xl bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5"
+                  >
+                    <List className="w-3.5 h-3.5" /> Bullet List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('numbered-list')}
+                    className="px-3 py-2 rounded-xl bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5"
+                  >
+                    <ListOrdered className="w-3.5 h-3.5" /> Numbered List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddBlock('divider')}
+                    className="px-3 py-2 rounded-xl bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5"
+                  >
+                    <Minus className="w-3.5 h-3.5" /> Divider
+                  </button>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
-          {/* Right Sidebar (4 Cols) */}
+          {/* Right Sidebar: Publishing & Metadata (4 Cols) */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+              {/* Category Selection (5 New Categories) */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                  Category Pillar
+                  Main Category <span className="text-emerald-500">*</span>
                 </label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
+                  onChange={(e) => setCategory(e.target.value as CategoryId)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="wealth">Wealth & Financial Freedom</option>
-                  <option value="mindset">Mindset & Self-Mastery</option>
-                  <option value="psychology">Psychology & Human Nature</option>
-                  <option value="career">Career & Asymmetric Growth</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {categories.find((c) => c.id === category)?.description}
+                </p>
               </div>
 
+              {/* Status Selector */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
+                  Publishing Status
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStatus('published')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      status === 'published'
+                        ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                    }`}
+                  >
+                    Published Live
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('draft')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      status === 'draft'
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                    }`}
+                  >
+                    Draft Only
+                  </button>
+                </div>
+              </div>
+
+              {/* Featured Cover Photo */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
                   Cover Photo
@@ -1513,6 +1928,21 @@ service cloud.firestore {
                 <div className="relative rounded-2xl overflow-hidden aspect-video mb-3 border border-slate-200 dark:border-slate-800">
                   <img src={coverImage} alt="Cover preview" className="w-full h-full object-cover" />
                 </div>
+
+                <div className="flex gap-2 mb-3">
+                  <label className="flex-1 cursor-pointer px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-colors">
+                    <Upload className="w-3.5 h-3.5" /> Upload Photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={coverFileInputRef}
+                      className="hidden"
+                      onChange={handleCoverImageUpload}
+                    />
+                  </label>
+                </div>
+
+                {/* Presets */}
                 <div className="space-y-1.5 mb-3">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
                     Curated Presets:
@@ -1534,6 +1964,7 @@ service cloud.firestore {
                     ))}
                   </div>
                 </div>
+
                 <input
                   type="url"
                   value={coverImage}
@@ -1543,16 +1974,92 @@ service cloud.firestore {
                 />
               </div>
 
+              {/* Author & Date */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Author Name
+                  </label>
+                  <input
+                    type="text"
+                    value={authorName}
+                    onChange={(e) => setAuthorName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                    Publish Date
+                  </label>
+                  <input
+                    type="text"
+                    value={publishedDate}
+                    onChange={(e) => setPublishedDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* URL Slug */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  URL Slug
+                </label>
+                <div className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+                  <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="text-slate-400">/articles/</span>
+                  <input
+                    type="text"
+                    value={customSlug}
+                    onChange={(e) => setCustomSlug(e.target.value)}
+                    placeholder={finalSlug}
+                    className="flex-1 bg-transparent text-slate-900 dark:text-white font-mono focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* SEO Title & Description */}
+              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                  SEO & Search Optimization
+                </span>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                    SEO Meta Title
+                  </label>
+                  <input
+                    type="text"
+                    value={seoTitle}
+                    onChange={(e) => setSeoTitle(e.target.value)}
+                    placeholder={title || 'Custom SEO title...'}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                    SEO Meta Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={seoDescription}
+                    onChange={(e) => setSeoDescription(e.target.value)}
+                    placeholder={excerpt || subtitle || 'Custom SEO description...'}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border text-xs resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Tags */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                  Tags & Metadata
+                  Tags (Comma separated)
                 </label>
                 <input
                   type="text"
                   value={tags}
                   onChange={(e) => setTags(e.target.value)}
-                  placeholder="Wealth, Strategy, Psychology"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none"
+                  placeholder="Wealth, Strategy, Mindset"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
                 />
               </div>
 
@@ -1563,33 +2070,47 @@ service cloud.firestore {
                   <span className="font-bold text-emerald-400">{readTimeCalculated}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Total Sections:</span>
-                  <span className="font-bold text-white">{sections.length}</span>
+                  <span className="text-slate-400">Content Blocks:</span>
+                  <span className="font-bold text-white">{blocks.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Target Category:</span>
+                  <span className="font-bold text-emerald-400">{getCategoryLabel(category)}</span>
                 </div>
               </div>
 
-              {/* Publish Action Button */}
-              <button
-                type="button"
-                onClick={handlePublishOrUpdate}
-                className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-transform hover:scale-105 active:scale-95"
-              >
-                {editingId ? (
-                  <>
-                    <Save className="w-4 h-4" /> Save & Update Blog
-                  </>
-                ) : (
-                  <>
-                    Publish Live to Site <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+              {/* Publish Action Buttons */}
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveOrPublish('published')}
+                  className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-transform hover:scale-105 active:scale-95"
+                >
+                  {editingId ? (
+                    <>
+                      <Save className="w-4 h-4" /> Save & Update Live
+                    </>
+                  ) : (
+                    <>
+                      Publish Live to Website <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveOrPublish('draft')}
+                  className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <FileDown className="w-3.5 h-3.5" /> Save as Draft
+                </button>
+              </div>
 
               {editingId && (
                 <button
                   type="button"
                   onClick={handleResetForm}
-                  className="w-full py-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 border border-amber-500/30"
+                  className="w-full py-2 rounded-xl bg-slate-850 hover:bg-slate-800 text-amber-400 text-xs font-bold flex items-center justify-center gap-1.5 border border-amber-500/30"
                 >
                   <X className="w-3.5 h-3.5" /> Cancel Edit (New Post)
                 </button>

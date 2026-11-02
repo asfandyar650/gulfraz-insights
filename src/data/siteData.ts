@@ -12,30 +12,42 @@ export const author: ArticleAuthor = {
 
 export const categories: Category[] = [
   {
-    id: "wealth",
-    name: "Wealth & Financial Freedom",
-    description: "Frameworks, asset building, and strategies to decouple time from income.",
+    id: "book-notes",
+    slug: "book-notes",
+    name: "Book Notes",
+    description: "Book summaries, important lessons, key ideas, and takeaways from books.",
+    iconName: "BookOpen",
+    badgeColor: "amber"
+  },
+  {
+    id: "wealth-investing",
+    slug: "wealth-investing",
+    name: "Wealth & Investing",
+    description: "Financial freedom, savings, wealth building, budgeting, and investment education.",
     iconName: "TrendingUp",
     badgeColor: "emerald"
   },
   {
-    id: "mindset",
-    name: "Mindset & Self-Mastery",
-    description: "Cognitive models and mental fitness to overcome self-limiting beliefs.",
-    iconName: "Compass",
-    badgeColor: "amber"
+    id: "make-money-online",
+    slug: "make-money-online",
+    name: "Make Money Online",
+    description: "Online businesses, side hustles, AI tools, freelancing, and earning through digital skills.",
+    iconName: "Laptop",
+    badgeColor: "cyan"
   },
   {
-    id: "psychology",
-    name: "Psychology & Human Nature",
-    description: "Understanding social dynamics, emotional intelligence, and influence.",
+    id: "mindset-psychology",
+    slug: "mindset-psychology",
+    name: "Mindset & Psychology",
+    description: "Personal development, human psychology, discipline, habits, productivity, and mindset.",
     iconName: "Brain",
     badgeColor: "indigo"
   },
   {
-    id: "career",
-    name: "Career & Asymmetric Growth",
-    description: "Leveraging rare skills, deep work, and high-impact positioning.",
+    id: "career-skills",
+    slug: "career-skills",
+    name: "Career & Skills",
+    description: "Career development, professional skills, learning, technology, and career opportunities.",
     iconName: "Zap",
     badgeColor: "violet"
   }
@@ -68,15 +80,11 @@ export const quotes: Quote[] = [
     source: "Good to Great"
   },
   {
-    quote: "Money is something you choose to trade your life energy for. How much of your life is that item worth?",
-    author: "Vicki Robin",
-    source: "Your Money or Your Life"
-  },
-  {
-    quote: "You do not rise to the level of your goals. You fall to the level of your systems.",
-    author: "James Clear",
-    source: "Atomic Habits"
+    quote: "Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it.",
+    author: "Albert Einstein",
+    source: "Attributed"
   }
 ];
 
-export const defaultArticles: Article[] = rawArticles as Article[];
+export const articles: Article[] = rawArticles as Article[];
+export const defaultArticles: Article[] = articles;

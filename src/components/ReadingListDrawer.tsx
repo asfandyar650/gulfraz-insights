@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Bookmark, X, Clock, Trash2, ArrowRight } from 'lucide-react';
 import { useReadingList } from '../context/ReadingListContext';
 import { useArticles } from '../context/ArticlesContext';
+import { getCategoryLabel } from '../lib/categories';
 
 export const ReadingListDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, bookmarkedIds, removeBookmark } = useReadingList();
@@ -75,7 +76,7 @@ export const ReadingListDrawer: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">
-                        {article.category}
+                        {getCategoryLabel(article.category)}
                       </span>
                       <span className="text-slate-300 dark:text-slate-700">•</span>
                       <span className="text-[11px] text-slate-500 flex items-center gap-1">

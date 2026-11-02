@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, LayoutGrid, List, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Search, ArrowUpDown, LayoutGrid, List, Sparkles, ArrowRight } from 'lucide-react';
 import { Article } from '../types';
 import { ArticleCard } from './ArticleCard';
+import { categories as canonicalCategories, normalizeCategory } from '../lib/categories';
 
 interface ArticlesListProps {
   articles: Article[];
@@ -15,14 +17,18 @@ export const ArticlesList: React.FC<ArticlesListProps> = ({
   initialCategory = 'all',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedCategory, setSelectedCategory] = useState(
+    initialCategory === 'all' ? 'all' : normalizeCategory(initialCategory)
+  );
   const [sortBy, setSortBy] = useState<'newest' | 'views' | 'claps'>('newest');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const filteredArticles = useMemo(() => {
     return articles
       .filter((a) => {
-        const matchesCategory = selectedCategory === 'all' || a.category === selectedCategory;
+        if (a.status === 'draft') return false;
+        const matchesCategory =
+          selectedCategory === 'all' || normalizeCategory(a.category) === selectedCategory;
         const q = searchQuery.toLowerCase().trim();
         const matchesQuery =
           q === '' ||
@@ -33,18 +39,19 @@ export const ArticlesList: React.FC<ArticlesListProps> = ({
         return matchesCategory && matchesQuery;
       })
       .sort((a, b) => {
-        if (sortBy === 'views') return b.views - a.views;
-        if (sortBy === 'claps') return b.claps - a.claps;
+        if (sortBy === 'views') return (b.views || 0) - (a.views || 0);
+        if (sortBy === 'claps') return (b.claps || 0) - (a.claps || 0);
         return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
       });
   }, [articles, selectedCategory, searchQuery, sortBy]);
 
-  const categories = [
-    { id: 'all', label: 'All Essays' },
-    { id: 'wealth', label: 'Wealth & Freedom' },
-    { id: 'mindset', label: 'Mindset & Growth' },
-    { id: 'psychology', label: 'Psychology' },
-    { id: 'career', label: 'Career & Growth' },
+  const categoryFilterList = [
+    { id: 'all', label: 'All Essays', slug: '' },
+    ...canonicalCategories.map((c) => ({
+      id: c.id,
+      label: c.name,
+      slug: c.slug,
+    })),
   ];
 
   return (
@@ -121,20 +128,39 @@ export const ArticlesList: React.FC<ArticlesListProps> = ({
         </div>
 
         {/* Category Pills */}
-        <div className="flex flex-wrap items-center gap-2">
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setSelectedCategory(c.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                selectedCategory === c.id
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
-              }`}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {categoryFilterList.map((c) => {
+              const isSelected = selectedCategory === c.id;
+              const count =
+                c.id === 'all'
+                  ? articles.length
+                  : articles.filter((a) => normalizeCategory(a.category) === c.id && a.status !== 'draft').length;
+
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCategory(c.id)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                    isSelected
+                      ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  {c.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedCategory !== 'all' && (
+            <Link
+              href={`/category/${selectedCategory}`}
+              className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
             >
-              {c.label} {c.id === 'all' && `(${articles.length})`}
-            </button>
-          ))}
+              Open Dedicated Hub <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
         </div>
       </div>
 

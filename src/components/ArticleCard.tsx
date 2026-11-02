@@ -6,6 +6,7 @@ import { Clock, Eye, Heart, Bookmark, Volume2, Pause, ArrowRight } from 'lucide-
 import { Article } from '../types';
 import { useReadingList } from '../context/ReadingListContext';
 import { useAudioPlayer } from '../context/AudioPlayerContext';
+import { getCategoryBadgeClass, getCategoryLabel } from '../lib/categories';
 
 interface ArticleCardProps {
   article: Article;
@@ -18,15 +19,8 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, variant = 'st
 
   const bookmarked = isBookmarked(article.id);
   const isAudioActive = currentArticle?.id === article.id && isPlaying;
-
-  const categoryStyles: Record<string, string> = {
-    wealth: 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800/60',
-    mindset: 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800/60',
-    psychology: 'text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800/60',
-    career: 'text-violet-700 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/60 border-violet-200 dark:border-violet-800/60',
-  };
-
-  const badgeClass = categoryStyles[article.category] || categoryStyles.wealth;
+  const badgeClass = getCategoryBadgeClass(article.category);
+  const categoryLabel = getCategoryLabel(article.category);
 
   if (variant === 'featured') {
     return (
@@ -54,7 +48,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, variant = 'st
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${badgeClass}`}>
-                {article.category}
+                {categoryLabel}
               </span>
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
@@ -141,7 +135,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, variant = 'st
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${badgeClass}`}>
-                {article.category}
+                {categoryLabel}
               </span>
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -203,7 +197,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({ article, variant = 'st
         </Link>
         <div className="absolute top-3 left-3">
           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-sm border ${badgeClass}`}>
-            {article.category}
+            {categoryLabel}
           </span>
         </div>
         <div className="absolute top-3 right-3 flex items-center gap-1.5">

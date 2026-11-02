@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { defaultArticles } from '../data/siteData';
+import { categories } from '../lib/categories';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://gulfrazinsights.com';
@@ -55,6 +56,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
+  // Dynamic 5 Category Hub Pages
+  const categoryEntries: MetadataRoute.Sitemap = categories.map((cat) => ({
+    url: `${baseUrl}/category/${cat.slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily',
+    priority: 0.9,
+  }));
+
   // Dynamic articles mapping
   const articleEntries: MetadataRoute.Sitemap = defaultArticles.map((art) => ({
     url: `${baseUrl}/articles/${art.slug}`,
@@ -63,5 +72,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.9,
   }));
 
-  return [...staticPages, ...articleEntries];
+  return [...staticPages, ...categoryEntries, ...articleEntries];
 }

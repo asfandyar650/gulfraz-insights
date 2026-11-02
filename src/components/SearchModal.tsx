@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Search, X, Hash, ArrowRight, Clock } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { Article } from '../types';
+import { getCategoryLabel } from '../lib/categories';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -61,13 +62,14 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
   };
 
   const suggestedTopics = [
+    'Book Notes',
+    'Wealth & Investing',
+    'Make Money Online',
+    'Mindset & Psychology',
+    'Career & Skills',
     'Millionaire Fastlane',
     'Index Funds',
-    'FIRE',
     'Robert Greene',
-    'Mastery',
-    'Psychology',
-    'Mindset',
   ];
 
   return (
@@ -148,7 +150,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose }) => 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-semibold tracking-wider uppercase text-emerald-600 dark:text-emerald-400">
-                        {article.category}
+                        {getCategoryLabel(article.category)}
                       </span>
                       <span className="text-slate-300 dark:text-slate-700">•</span>
                       <span className="text-[11px] text-slate-400 flex items-center gap-1">
