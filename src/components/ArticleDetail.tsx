@@ -23,6 +23,7 @@ import {
   Twitter,
   Linkedin,
   Facebook,
+  Instagram,
   Send,
   Edit3,
   QrCode,
@@ -706,6 +707,30 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
             <p className="mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
               {article.author.bio}
             </p>
+            {/* Social channels */}
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-400">Follow:</span>
+              <a
+                href={article.author.instagram || 'https://www.instagram.com/gulfrazinsightss?vrfl=N2J2M2J3M3p2bDhp'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-600 dark:text-slate-300 transition-colors text-xs font-semibold flex items-center gap-1.5"
+                title="Follow on Instagram"
+              >
+                <Instagram className="w-3.5 h-3.5 text-rose-500" />
+                <span>Instagram</span>
+              </a>
+              <a
+                href={article.author.facebook || 'https://www.facebook.com/share/1EuquaFbJ9/'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-600 dark:text-slate-300 transition-colors text-xs font-semibold flex items-center gap-1.5"
+                title="Follow on Facebook"
+              >
+                <Facebook className="w-3.5 h-3.5 text-blue-500" />
+                <span>Facebook</span>
+              </a>
+            </div>
           </div>
         </div>
 

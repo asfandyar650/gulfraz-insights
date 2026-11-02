@@ -76,6 +76,10 @@ export default function RootLayout({
                   name: 'Gulfraz Khan',
                   jobTitle: 'Author & Financial Researcher',
                   url: 'https://gulfrazinsights.com/about',
+                  sameAs: [
+                    'https://www.instagram.com/gulfrazinsightss?vrfl=N2J2M2J3M3p2bDhp',
+                    'https://www.facebook.com/share/1EuquaFbJ9/'
+                  ],
                   description: 'Founder and writer at Gulfraz Insights.',
                 },
               ],

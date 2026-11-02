@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, TrendingUp, BookOpen, Laptop, Brain, Zap, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Sparkles, TrendingUp, BookOpen, Laptop, Brain, Zap, ShieldCheck, ArrowRight, Instagram, Facebook } from 'lucide-react';
 import { author } from '../data/siteData';
 import { categories } from '../lib/categories';
 
@@ -52,6 +52,31 @@ export const AboutView: React.FC = () => {
             <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed">
               I started Gulfraz Insights to document what actually works. Whenever I read an influential book on economics, psychology, or mindset, I deconstruct it into practical notes and clear principles you can test in your own life.
             </p>
+
+            {/* Social Media Connect Links */}
+            <div className="pt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Connect Directly:
+              </span>
+              <a
+                href="https://www.instagram.com/gulfrazinsightss?vrfl=N2J2M2J3M3p2bDhp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-tr from-amber-500/10 via-rose-500/10 to-purple-600/10 hover:from-amber-500 hover:via-rose-500 hover:to-purple-600 border border-rose-500/30 text-rose-600 dark:text-rose-400 hover:text-white transition-all text-xs font-bold flex items-center gap-2 shadow-sm"
+              >
+                <Instagram className="w-4 h-4" />
+                <span>@gulfrazinsightss</span>
+              </a>
+              <a
+                href="https://www.facebook.com/share/1EuquaFbJ9/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-600 border border-blue-500/30 text-blue-600 dark:text-blue-400 hover:text-white transition-all text-xs font-bold flex items-center gap-2 shadow-sm"
+              >
+                <Facebook className="w-4 h-4" />
+                <span>Gulfraz Insights on Facebook</span>
+              </a>
+            </div>
           </div>
         </div>
       </div>

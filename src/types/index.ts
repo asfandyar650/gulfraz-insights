@@ -5,6 +5,8 @@ export interface ArticleAuthor {
   bio: string;
   twitter?: string;
   linkedin?: string;
+  instagram?: string;
+  facebook?: string;
 }
 
 export interface SectionQuote {

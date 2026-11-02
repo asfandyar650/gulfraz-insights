@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, Globe, Send, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Mail, Globe, Send, CheckCircle2, ChevronDown, Instagram, Facebook } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useToast } from '../context/ToastContext';
 
@@ -189,6 +189,38 @@ export const ContactView: React.FC = () => {
                   <p className="font-semibold text-slate-900 dark:text-white">gulfrazinsights.com</p>
                 </div>
               </div>
+              <a
+                href="https://www.instagram.com/gulfrazinsightss?vrfl=N2J2M2J3M3p2bDhp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors group"
+              >
+                <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:scale-105 transition-transform">
+                  <Instagram className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Official Instagram</p>
+                  <p className="font-semibold text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                    @gulfrazinsightss
+                  </p>
+                </div>
+              </a>
+              <a
+                href="https://www.facebook.com/share/1EuquaFbJ9/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors group"
+              >
+                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
+                  <Facebook className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Official Facebook</p>
+                  <p className="font-semibold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    Gulfraz Insights
+                  </p>
+                </div>
+              </a>
             </div>
           </div>
 

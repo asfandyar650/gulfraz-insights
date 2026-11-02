@@ -22,7 +22,9 @@ import {
   Heart,
   FileText,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  Instagram,
+  Facebook
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useReadingList } from '../context/ReadingListContext';
@@ -471,6 +473,33 @@ export const Header: React.FC<HeaderProps> = ({
                       {bookmarkedIds.length} saved
                     </span>
                   </button>
+                </div>
+
+                {/* Connect With Gulfraz Social Links */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2 px-1">
+                    Connect With Gulfraz
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href="https://www.instagram.com/gulfrazinsightss?vrfl=N2J2M2J3M3p2bDhp"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-rose-500 hover:text-white border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <Instagram className="w-4 h-4 text-rose-500" />
+                      <span>Instagram</span>
+                    </a>
+                    <a
+                      href="https://www.facebook.com/share/1EuquaFbJ9/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-600 hover:text-white border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors"
+                    >
+                      <Facebook className="w-4 h-4 text-blue-500" />
+                      <span>Facebook</span>
+                    </a>
+                  </div>
                 </div>
 
                 {/* Legal & Info */}

@@ -7,7 +7,9 @@ export const author: ArticleAuthor = {
   avatar: "/assets/gulfraz-avatar-MBgtF9on.jpg",
   bio: "Reader, writer, and researcher. I study personal finance, psychology, and the habits behind true independence, turning the best books into practical essays for everyday life.",
   twitter: "https://twitter.com",
-  linkedin: "https://linkedin.com"
+  linkedin: "https://linkedin.com",
+  instagram: "https://www.instagram.com/gulfrazinsightss?vrfl=N2J2M2J3M3p2bDhp",
+  facebook: "https://www.facebook.com/share/1EuquaFbJ9/"
 };
 
 export const categories: Category[] = [

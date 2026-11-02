@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Mail, ArrowRight, CheckCircle2, TrendingUp, BookOpen, Laptop, Brain, Zap } from 'lucide-react';
+import { Mail, ArrowRight, CheckCircle2, TrendingUp, BookOpen, Laptop, Brain, Zap, Instagram, Facebook } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useToast } from '../context/ToastContext';
 import { useReadingList } from '../context/ReadingListContext';
@@ -84,6 +84,30 @@ export const Footer: React.FC = () => {
             <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
               Independent publication dedicated to wealth building, financial freedom frameworks, cognitive psychology, and strategic self-mastery.
             </p>
+            {/* Social Media Links */}
+            <div className="pt-2 flex flex-wrap items-center gap-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mr-1">Follow:</span>
+              <a
+                href="https://www.instagram.com/gulfrazinsightss?vrfl=N2J2M2J3M3p2bDhp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-gradient-to-tr hover:from-amber-500 hover:via-rose-500 hover:to-purple-600 text-slate-300 hover:text-white transition-all shadow-sm flex items-center gap-1.5 text-xs font-semibold group border border-slate-700/60"
+                title="Follow Gulfraz on Instagram"
+              >
+                <Instagram className="w-3.5 h-3.5 text-rose-400 group-hover:text-white transition-colors" />
+                <span>Instagram</span>
+              </a>
+              <a
+                href="https://www.facebook.com/share/1EuquaFbJ9/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition-all shadow-sm flex items-center gap-1.5 text-xs font-semibold group border border-slate-700/60"
+                title="Follow Gulfraz on Facebook"
+              >
+                <Facebook className="w-3.5 h-3.5 text-blue-400 group-hover:text-white transition-colors" />
+                <span>Facebook</span>
+              </a>
+            </div>
           </div>
 
           {/* Publication links */}
