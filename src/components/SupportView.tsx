@@ -15,6 +15,8 @@ import {
   Mail,
   ArrowRight,
   ExternalLink,
+  Smartphone,
+  UserCheck
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useToast } from '../context/ToastContext';
@@ -24,7 +26,7 @@ interface QrModalData {
   subtitle: string;
   imageSrc: string;
   filename: string;
-  provider: 'jazzcash' | 'payoneer';
+  provider: 'easypaisa';
 }
 
 export const SupportView: React.FC = () => {
@@ -57,12 +59,12 @@ export const SupportView: React.FC = () => {
   };
 
   return (
-    <div className="py-12 sm:py-20 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="py-12 sm:py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Hero Header */}
-      <div className="text-center max-w-3xl mx-auto mb-14 sm:mb-18">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 mb-4 shadow-sm">
-          <Heart className="w-4 h-4 fill-amber-500 text-amber-500 animate-pulse" />
-          <span>Reader-Supported Publication</span>
+      <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 mb-4 shadow-sm">
+          <Heart className="w-4 h-4 fill-emerald-500 text-emerald-500 animate-pulse" />
+          <span>Reader-Supported Independent Publication</span>
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
@@ -70,9 +72,9 @@ export const SupportView: React.FC = () => {
         </h1>
 
         <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto">
-          If you find Gulfraz Insights useful, you can support our work with a voluntary contribution.
-          Your support helps us maintain the website, keep our essays completely open and free to all,
-          and continue creating useful, practical content.
+          If you find Gulfraz Insights useful, you can support our independent research with a voluntary contribution.
+          Your support helps maintain the website, keep our essays completely open with no paywalls,
+          and continue producing practical, in-depth summaries.
         </p>
 
         <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -85,192 +87,123 @@ export const SupportView: React.FC = () => {
           </span>
           <span>•</span>
           <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Local &amp; Global Options
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Instant Easypaisa QR
           </span>
         </div>
       </div>
 
-      {/* Two Support Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 mb-16">
-        {/* Card 1: JazzCash */}
-        <div className="group rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-bl-full pointer-events-none" />
+      {/* Main Support Card: Easypaisa Spotlight */}
+      <div className="mb-16">
+        <div className="group rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-10 shadow-2xl hover:border-emerald-500/40 transition-all duration-300 relative overflow-hidden max-w-2xl mx-auto">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-bl-full pointer-events-none" />
 
-          <div>
-            {/* Provider Tag */}
-            <div className="flex items-center justify-between mb-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-                🇵🇰 Pakistani Readers
-              </span>
-              <span className="text-xs font-semibold text-slate-400">JazzCash / Raast</span>
+          {/* Provider Tag */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+              <Smartphone className="w-3.5 h-3.5 text-emerald-500" /> Easypaisa QR
+            </span>
+            <span className="text-xs font-semibold text-slate-400">Easypaisa / Raast / Any Bank</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            Support via Easypaisa
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 mb-6 leading-relaxed">
+            Scan this official QR code using the <strong>Easypaisa app</strong> or any Pakistani mobile banking app (Nayapay, Sadapay, HBL, Meezan, etc.).
+          </p>
+
+          {/* Account Details Banner */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Account Title
+                </p>
+                <p className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+                  GULZAR HUSSAIN ANJUM
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Number / MSISDN
+              </p>
+              <p className="text-sm font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                *******2292
+              </p>
+            </div>
+          </div>
+
+          {/* QR Code Container */}
+          <div className="bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center relative mb-6">
+            <div
+              onClick={() =>
+                openQrModal({
+                  title: 'Support via Easypaisa',
+                  subtitle: "Scan to send money to GULZAR HUSSAIN ANJUM's easypaisa account",
+                  imageSrc: '/images/easypaisa-qr.jpg',
+                  filename: 'gulfraz-insights-easypaisa-qr.jpg',
+                  provider: 'easypaisa',
+                })
+              }
+              className="cursor-pointer relative group/qr overflow-hidden rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white p-3 shadow-md max-w-xs"
+            >
+              <img
+                src="/images/easypaisa-qr.jpg"
+                alt="Easypaisa QR Code - GULZAR HUSSAIN ANJUM - Gulfraz Insights"
+                className="w-64 h-64 sm:w-72 sm:h-72 object-contain rounded-xl transition-transform duration-300 group-hover/qr:scale-105"
+              />
+              <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/qr:opacity-100 flex items-center justify-center transition-opacity rounded-2xl">
+                <span className="px-3.5 py-2 rounded-xl bg-white/95 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-lg">
+                  <Maximize2 className="w-4 h-4 text-emerald-600" /> Tap to Enlarge
+                </span>
+              </div>
             </div>
 
-            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Support via JazzCash
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 mb-6 leading-relaxed">
-              Pakistani readers can support Gulfraz Insights through JazzCash.
-            </p>
-
-            {/* QR Code Container */}
-            <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center relative mb-6">
-              <div
+            {/* QR Action Buttons */}
+            <div className="flex items-center gap-3 mt-5 w-full max-w-xs">
+              <button
                 onClick={() =>
                   openQrModal({
-                    title: 'Support via JazzCash',
-                    subtitle: 'Scan with JazzCash app or any Pakistani banking app (Raast)',
-                    imageSrc: '/images/jazzcash-qr.jpeg',
-                    filename: 'gulfraz-insights-jazzcash-qr.jpeg',
-                    provider: 'jazzcash',
+                    title: 'Support via Easypaisa',
+                    subtitle: "Scan to send money to GULZAR HUSSAIN ANJUM's easypaisa account",
+                    imageSrc: '/images/easypaisa-qr.jpg',
+                    filename: 'gulfraz-insights-easypaisa-qr.jpg',
+                    provider: 'easypaisa',
                   })
                 }
-                className="cursor-pointer relative group/qr overflow-hidden rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white p-2 shadow-sm"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
               >
-                <img
-                  src="/images/jazzcash-qr.jpeg"
-                  alt="JazzCash QR Code - Gulfraz Insights"
-                  className="w-56 h-56 sm:w-64 sm:h-64 object-contain rounded-lg transition-transform duration-300 group-hover/qr:scale-105"
-                />
-                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/qr:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
-                  <span className="px-3 py-1.5 rounded-lg bg-white/95 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-lg">
-                    <Maximize2 className="w-3.5 h-3.5" /> Tap to Enlarge
-                  </span>
-                </div>
-              </div>
-
-              {/* QR Action Buttons */}
-              <div className="flex items-center gap-2 mt-4 w-full max-w-xs">
-                <button
-                  onClick={() =>
-                    openQrModal({
-                      title: 'Support via JazzCash',
-                      subtitle: 'Scan with JazzCash app or any Pakistani banking app (Raast)',
-                      imageSrc: '/images/jazzcash-qr.jpeg',
-                      filename: 'gulfraz-insights-jazzcash-qr.jpeg',
-                      provider: 'jazzcash',
-                    })
-                  }
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" /> Zoom QR
-                </button>
-                <button
-                  onClick={() => handleDownload('/images/jazzcash-qr.jpeg', 'gulfraz-insights-jazzcash-qr.jpeg')}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download
-                </button>
-              </div>
+                <Maximize2 className="w-3.5 h-3.5" /> Zoom QR
+              </button>
+              <button
+                onClick={() => handleDownload('/images/easypaisa-qr.jpg', 'gulfraz-insights-easypaisa-qr.jpg')}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" /> Save QR
+              </button>
             </div>
+          </div>
 
-            {/* Quote Box */}
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 mb-6">
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                Thank you for supporting Gulfraz Insights! ❤️
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                Every contribution, no matter the amount, is greatly appreciated.
-              </p>
-            </div>
+          {/* Quote Box */}
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 mb-6">
+            <p className="text-sm font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+              Thank you for supporting Gulfraz Insights! ❤️
+            </p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+              Every voluntary contribution, no matter the amount, directly fuels our reading, research, and independent writing.
+            </p>
           </div>
 
           {/* Quick Steps */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">How to pay:</p>
-            <p>1. Open JazzCash or your mobile banking app (Nayapay, Sadapay, HBL, Meezan).</p>
-            <p>2. Tap &apos;Scan QR&apos; or upload this image.</p>
-            <p>3. Confirm and send your contribution.</p>
-          </div>
-        </div>
-
-        {/* Card 2: Payoneer */}
-        <div className="group rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-bl-full pointer-events-none" />
-
-          <div>
-            {/* Provider Tag */}
-            <div className="flex items-center justify-between mb-4">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                🌍 International Supporters
-              </span>
-              <span className="text-xs font-semibold text-slate-400">Payoneer / Global</span>
-            </div>
-
-            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Support via Payoneer
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 mb-6 leading-relaxed">
-              International supporters can support Gulfraz Insights through Payoneer.
-            </p>
-
-            {/* QR Code Container */}
-            <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center relative mb-6">
-              <div
-                onClick={() =>
-                  openQrModal({
-                    title: 'Support via Payoneer',
-                    subtitle: 'Scan with Payoneer or your mobile camera to contribute globally',
-                    imageSrc: '/images/payoneer-qr.png',
-                    filename: 'gulfraz-insights-payoneer-qr.png',
-                    provider: 'payoneer',
-                  })
-                }
-                className="cursor-pointer relative group/qr overflow-hidden rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white p-3 shadow-sm"
-              >
-                <img
-                  src="/images/payoneer-qr.png"
-                  alt="Payoneer QR Code - Gulfraz Insights"
-                  className="w-56 h-56 sm:w-64 sm:h-64 object-contain rounded-lg transition-transform duration-300 group-hover/qr:scale-105"
-                />
-                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/qr:opacity-100 flex items-center justify-center transition-opacity rounded-xl">
-                  <span className="px-3 py-1.5 rounded-lg bg-white/95 text-slate-900 font-bold text-xs flex items-center gap-1.5 shadow-lg">
-                    <Maximize2 className="w-3.5 h-3.5" /> Tap to Enlarge
-                  </span>
-                </div>
-              </div>
-
-              {/* QR Action Buttons */}
-              <div className="flex items-center gap-2 mt-4 w-full max-w-xs">
-                <button
-                  onClick={() =>
-                    openQrModal({
-                      title: 'Support via Payoneer',
-                      subtitle: 'Scan with Payoneer or your mobile camera to contribute globally',
-                      imageSrc: '/images/payoneer-qr.png',
-                      filename: 'gulfraz-insights-payoneer-qr.png',
-                      provider: 'payoneer',
-                    })
-                  }
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" /> Zoom QR
-                </button>
-                <button
-                  onClick={() => handleDownload('/images/payoneer-qr.png', 'gulfraz-insights-payoneer-qr.png')}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download
-                </button>
-              </div>
-            </div>
-
-            {/* Quote Box */}
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-800 dark:text-slate-200 mb-6">
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                Thank you for supporting Gulfraz Insights! ❤️
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                Every contribution, no matter the amount, is greatly appreciated.
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Steps */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">How to pay:</p>
-            <p>1. Open Payoneer app or point your camera at the QR code.</p>
-            <p>2. Select amount in your preferred currency (USD, EUR, GBP).</p>
-            <p>3. Confirm payment safely via Payoneer.</p>
+            <p className="font-semibold text-slate-700 dark:text-slate-300">How to contribute:</p>
+            <p>1. Open the <strong>Easypaisa</strong> app or your mobile banking app (Nayapay, Sadapay, HBL, Meezan, Bank Alfalah, etc.).</p>
+            <p>2. Tap <strong>Scan QR</strong> or upload this QR code from your mobile gallery.</p>
+            <p>3. Confirm recipient <strong>GULZAR HUSSAIN ANJUM</strong> and send your contribution.</p>
           </div>
         </div>
       </div>

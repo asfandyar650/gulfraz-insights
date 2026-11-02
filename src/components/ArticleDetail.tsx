@@ -675,7 +675,7 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
                 Support Gulfraz Insights 💛
               </h4>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
-                Found this insight valuable? You can support our independent research via JazzCash or Payoneer QR code.
+                Found this insight valuable? You can support our independent research via Easypaisa QR code.
               </p>
             </div>
           </div>
