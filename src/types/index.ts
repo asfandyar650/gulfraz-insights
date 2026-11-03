@@ -27,12 +27,7 @@ export type CategoryId =
   | 'wealth-investing'
   | 'make-money-online'
   | 'mindset-psychology'
-  | 'career-skills'
-  // Support legacy category strings during migration
-  | 'wealth'
-  | 'mindset'
-  | 'psychology'
-  | 'career';
+  | 'career-skills';
 
 export type ContentBlockType =
   | 'paragraph'

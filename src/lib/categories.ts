@@ -44,22 +44,48 @@ export const categories: Category[] = [
 ];
 
 export function getCategoryById(id: string): Category | undefined {
-  return categories.find((c) => c.id === id || c.slug === id);
+  if (!id) return undefined;
+  const direct = categories.find((c) => c.id === id || c.slug === id);
+  if (direct) return direct;
+  const norm = normalizeCategory(id);
+  return categories.find((c) => c.id === norm || c.slug === norm);
 }
 
 export function getCategoryBySlug(slug: string): Category | undefined {
-  return categories.find((c) => c.slug === slug || c.id === slug);
+  if (!slug) return undefined;
+  const direct = categories.find((c) => c.slug === slug || c.id === slug);
+  if (direct) return direct;
+  const norm = normalizeCategory(slug);
+  return categories.find((c) => c.id === norm || c.slug === norm);
 }
 
-// Maps legacy category string to one of the 5 new categories
+// Maps category strings (including write-in phrases & typos) to the 5 canonical categories
 export function normalizeCategory(cat: string): CategoryId {
   if (!cat) return 'wealth-investing';
-  const lower = cat.toLowerCase();
-  if (lower === 'book-notes' || lower.includes('book')) return 'book-notes';
-  if (lower === 'wealth-investing' || lower === 'wealth' || lower.includes('invest')) return 'wealth-investing';
-  if (lower === 'make-money-online' || lower.includes('money') || lower.includes('online')) return 'make-money-online';
-  if (lower === 'mindset-psychology' || lower === 'mindset' || lower === 'psychology') return 'mindset-psychology';
-  if (lower === 'career-skills' || lower === 'career' || lower.includes('skill')) return 'career-skills';
+  const lower = cat.toLowerCase().trim();
+  if (lower === 'book-notes' || lower === 'book notes' || lower.includes('book')) return 'book-notes';
+  if (lower === 'wealth-investing' || lower === 'wealth & investing' || lower === 'wealth' || lower.includes('invest')) return 'wealth-investing';
+  if (lower === 'make-money-online' || lower === 'make money online' || lower.includes('money') || lower.includes('online')) return 'make-money-online';
+  if (
+    lower === 'mindset-psychology' ||
+    lower === 'mindset & psychology' ||
+    lower === 'mindset & psycology' ||
+    lower === 'mindset-psycology' ||
+    lower.includes('mindset') ||
+    lower.includes('psyc')
+  ) {
+    return 'mindset-psychology';
+  }
+  if (
+    lower === 'career-skills' ||
+    lower === 'career & skills' ||
+    lower === 'career & skill' ||
+    lower === 'career-skill' ||
+    lower.includes('career') ||
+    lower.includes('skill')
+  ) {
+    return 'career-skills';
+  }
   return 'wealth-investing';
 }
 
