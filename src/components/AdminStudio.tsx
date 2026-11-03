@@ -178,28 +178,8 @@ export const AdminStudio: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
 
-  const presetPhotos = [
-    {
-      label: 'Finance & Gold',
-      url: 'https://images.unsplash.com/photo-1553729459-efe14ef6055d?auto=format&fit=crop&w=1400&q=80',
-    },
-    {
-      label: 'Books & Knowledge',
-      url: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=1400&q=80',
-    },
-    {
-      label: 'Digital Laptop',
-      url: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1400&q=80',
-    },
-    {
-      label: 'Mindset & Cosmos',
-      url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1400&q=80',
-    },
-    {
-      label: 'Career & Growth',
-      url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1400&q=80',
-    },
-  ];
+  const DEFAULT_COVER_IMAGE =
+    'https://images.unsplash.com/photo-1553729459-efe14ef6055d?auto=format&fit=crop&w=1400&q=80';
 
   useEffect(() => {
     try {
@@ -372,7 +352,7 @@ export const AdminStudio: React.FC = () => {
         year: 'numeric',
       }),
       readTime: readTimeCalculated,
-      coverImage: coverImage || presetPhotos[0].url,
+      coverImage: coverImage || DEFAULT_COVER_IMAGE,
       tags: tags
         .split(',')
         .map((t) => t.trim().replace(/^#/, ''))
@@ -548,7 +528,7 @@ export const AdminStudio: React.FC = () => {
     setSubtitle('');
     setExcerpt('');
     setCategory('wealth-investing');
-    setCoverImage(presetPhotos[0].url);
+    setCoverImage(DEFAULT_COVER_IMAGE);
     setTags('Wealth, Strategy, Mindset');
     setCustomSlug('');
     setSeoTitle('');
@@ -882,9 +862,11 @@ export const AdminStudio: React.FC = () => {
       {/* Top Header & Tab Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm mb-8">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-bold shrink-0">
-            <Sparkles className="w-5 h-5" />
-          </div>
+          <img
+            src="/assets/gulfraz-logo.png"
+            alt="Gulfraz Logo"
+            className="w-10 h-10 rounded-xl object-contain bg-white border border-slate-200 dark:border-slate-800 shadow-sm shrink-0 p-0.5"
+          />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white truncate">
@@ -2682,29 +2664,6 @@ export const AdminStudio: React.FC = () => {
                       onChange={handleCoverImageUpload}
                     />
                   </label>
-                </div>
-
-                {/* Presets */}
-                <div className="space-y-1.5 mb-3">
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-                    Curated Presets:
-                  </span>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {presetPhotos.map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => setCoverImage(preset.url)}
-                        className={`p-1.5 rounded-lg text-[10px] font-semibold border truncate transition-all ${
-                          coverImage === preset.url
-                            ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 border-emerald-500 font-bold'
-                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 <input

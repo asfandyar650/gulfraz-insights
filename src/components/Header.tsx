@@ -122,20 +122,11 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-all">
-              <svg
-                className="w-5 h-5 text-white"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 20L12 4L20 20M7 15H17" />
-                <circle cx="19" cy="5" r="2.2" fill="#fbbf24" stroke="none" />
-              </svg>
-            </div>
+            <img
+              src="/assets/gulfraz-logo.png"
+              alt="Gulfraz Logo"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl object-contain bg-white shadow-md border border-slate-200/80 dark:border-slate-800 group-hover:scale-105 transition-all p-0.5"
+            />
             <div>
               <div className="flex items-center gap-1 leading-none">
                 <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white">
@@ -342,9 +333,11 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Drawer Header */}
               <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold text-xs shadow">
-                    GI
-                  </div>
+                  <img
+                    src="/assets/gulfraz-logo.png"
+                    alt="Gulfraz Logo"
+                    className="w-8 h-8 rounded-xl object-contain bg-white border border-slate-200 dark:border-slate-800 shadow p-0.5"
+                  />
                   <div>
                     <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">
                       Gulfraz Insights

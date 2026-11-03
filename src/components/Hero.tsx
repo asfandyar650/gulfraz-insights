@@ -22,9 +22,9 @@ export const Hero: React.FC<HeroProps> = ({ featuredArticle }) => {
           {/* Author Pill */}
           <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-slate-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/80 mb-6 shadow-sm">
             <img
-              src={author.avatar}
-              alt={author.name}
-              className="w-5 h-5 rounded-full object-cover border border-emerald-500"
+              src="/assets/gulfraz-logo.png"
+              alt="Gulfraz Logo"
+              className="w-5 h-5 rounded-full object-contain border border-emerald-500 bg-white"
             />
             <span>A personal publication by Gulfraz Khan</span>
           </div>

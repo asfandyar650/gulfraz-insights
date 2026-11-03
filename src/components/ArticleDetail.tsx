@@ -241,9 +241,9 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm mb-8 w-full max-w-full">
           <div className="flex items-center gap-3 min-w-0">
             <img
-              src={article.author.avatar}
+              src="/assets/gulfraz-logo.png"
               alt={article.author.name}
-              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-emerald-500 shrink-0"
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-contain border-2 border-emerald-500 shrink-0 bg-white p-0.5"
             />
             <div className="min-w-0">
               <p className="font-bold text-slate-900 dark:text-white text-sm sm:text-base truncate">
@@ -691,9 +691,9 @@ export const ArticleDetail: React.FC<ArticleDetailProps> = ({ article }) => {
         {/* Author Bio Box */}
         <div className="mt-14 p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-6">
           <img
-            src={article.author.avatar}
+            src="/assets/gulfraz-logo.png"
             alt={article.author.name}
-            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-emerald-500 shrink-0"
+            className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-contain border-2 border-emerald-500 shrink-0 bg-white p-1"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">

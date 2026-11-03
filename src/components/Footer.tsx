@@ -76,9 +76,11 @@ export const Footer: React.FC = () => {
           {/* Brand info */}
           <div className="lg:col-span-2 space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white font-bold">
-                GI
-              </div>
+              <img
+                src="/assets/gulfraz-logo.png"
+                alt="Gulfraz Logo"
+                className="w-9 h-9 rounded-xl object-contain bg-white shadow-sm p-0.5"
+              />
               <span className="text-xl font-bold text-white tracking-tight">Gulfraz Insights</span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
