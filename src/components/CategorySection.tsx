@@ -15,9 +15,11 @@ interface CategorySectionProps {
 export const CategorySection: React.FC<CategorySectionProps> = ({ articles }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // The #1 ranked blog is featured on the Hero above.
+  // In 'all', display the 2nd, 3rd, 4th, and subsequent blogs in descending SEO score order.
   const filtered =
     selectedCategory === 'all'
-      ? articles
+      ? (articles.length > 1 ? articles.slice(1) : articles)
       : articles.filter((a) => normalizeCategory(a.category) === selectedCategory);
 
   const dailyQuote = quotes[new Date().getDay() % quotes.length];

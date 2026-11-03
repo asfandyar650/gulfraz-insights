@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Article } from '../types';
+import { Article, SeoAnalysisResult } from '../types';
 import { defaultArticles } from '../data/siteData';
+import { analyzeArticleSeo } from '../lib/seoAnalyzer';
 import {
   isFirebaseConfigured,
   getFirebaseArticles,
@@ -28,6 +29,9 @@ interface ArticlesContextType {
   mongoActive: boolean;
   refreshFromMongo: () => Promise<void>;
   syncAllToMongo: () => Promise<{ success: boolean; count: number; error?: string }>;
+  reanalyzeArticle: (id: string) => SeoAnalysisResult | null;
+  reanalyzeAllArticles: () => Promise<number>;
+  togglePinArticle: (id: string) => void;
 }
 
 const ArticlesContext = createContext<ArticlesContextType>({
@@ -45,6 +49,9 @@ const ArticlesContext = createContext<ArticlesContextType>({
   mongoActive: false,
   refreshFromMongo: async () => {},
   syncAllToMongo: async () => ({ success: false, count: 0 }),
+  reanalyzeArticle: () => null,
+  reanalyzeAllArticles: async () => 0,
+  togglePinArticle: () => {},
 });
 
 export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -165,21 +172,33 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const addArticle = useCallback(
     (article: Article) => {
+      // Automatically evaluate SEO score and heuristics
+      const analysis = analyzeArticleSeo(article);
+      const enriched: Article = {
+        ...article,
+        seoScore: analysis.score,
+        seoAnalysis: analysis,
+        seoIssues: analysis.issues,
+        seoSuggestions: analysis.suggestions,
+        lastAnalyzedAt: analysis.analyzedAt,
+        pinned: article.pinned || false,
+      };
+
       setArticles((prev) => {
-        const updated = [article, ...prev];
+        const updated = [enriched, ...prev];
         saveArticlesLocally(updated);
         return updated;
       });
 
       if (isFirebaseConfigured()) {
-        publishArticleToFirebase(article).catch(console.error);
+        publishArticleToFirebase(enriched).catch(console.error);
       }
 
       // Also persist to MongoDB Atlas via API
       fetch('/api/articles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ article }),
+        body: JSON.stringify({ article: enriched }),
       }).catch((e) => console.warn('MongoDB auto-sync notice:', e));
     },
     [saveArticlesLocally]
@@ -187,21 +206,32 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateArticle = useCallback(
     (article: Article) => {
+      // Automatically evaluate SEO score and heuristics
+      const analysis = analyzeArticleSeo(article);
+      const enriched: Article = {
+        ...article,
+        seoScore: analysis.score,
+        seoAnalysis: analysis,
+        seoIssues: analysis.issues,
+        seoSuggestions: analysis.suggestions,
+        lastAnalyzedAt: analysis.analyzedAt,
+      };
+
       setArticles((prev) => {
-        const updated = prev.map((a) => (a.id === article.id ? article : a));
+        const updated = prev.map((a) => (a.id === article.id ? enriched : a));
         saveArticlesLocally(updated);
         return updated;
       });
 
       if (isFirebaseConfigured()) {
-        publishArticleToFirebase(article).catch(console.error);
+        publishArticleToFirebase(enriched).catch(console.error);
       }
 
       // Also persist to MongoDB Atlas via API
       fetch('/api/articles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ article }),
+        body: JSON.stringify({ article: enriched }),
       }).catch((e) => console.warn('MongoDB auto-sync notice:', e));
     },
     [saveArticlesLocally]
@@ -223,6 +253,98 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       fetch(`/api/articles?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       }).catch((e) => console.warn('MongoDB delete notice:', e));
+    },
+    [saveArticlesLocally]
+  );
+
+  // Re-analyze a single article's SEO quality
+  const reanalyzeArticle = useCallback(
+    (id: string): SeoAnalysisResult | null => {
+      const target = articles.find((a) => a.id === id);
+      if (!target) return null;
+
+      const analysis = analyzeArticleSeo(target);
+      const updatedArticle: Article = {
+        ...target,
+        seoScore: analysis.score,
+        seoAnalysis: analysis,
+        seoIssues: analysis.issues,
+        seoSuggestions: analysis.suggestions,
+        lastAnalyzedAt: analysis.analyzedAt,
+      };
+
+      setArticles((prev) => {
+        const updated = prev.map((a) => (a.id === id ? updatedArticle : a));
+        saveArticlesLocally(updated);
+        return updated;
+      });
+
+      if (isFirebaseConfigured()) {
+        publishArticleToFirebase(updatedArticle).catch(console.error);
+      }
+
+      fetch('/api/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ article: updatedArticle }),
+      }).catch((e) => console.warn('MongoDB auto-sync notice:', e));
+
+      return analysis;
+    },
+    [articles, saveArticlesLocally]
+  );
+
+  // Re-analyze all articles in batch
+  const reanalyzeAllArticles = useCallback(async (): Promise<number> => {
+    const updatedArticles = articles.map((art) => {
+      const analysis = analyzeArticleSeo(art);
+      return {
+        ...art,
+        seoScore: analysis.score,
+        seoAnalysis: analysis,
+        seoIssues: analysis.issues,
+        seoSuggestions: analysis.suggestions,
+        lastAnalyzedAt: analysis.analyzedAt,
+      };
+    });
+
+    setArticles(updatedArticles);
+    saveArticlesLocally(updatedArticles);
+
+    if (isFirebaseConfigured()) {
+      syncAllArticlesToFirebase(updatedArticles).catch(console.error);
+    }
+
+    fetch('/api/articles/sync-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ articles: updatedArticles }),
+    }).catch((e) => console.warn('MongoDB batch sync notice:', e));
+
+    return updatedArticles.length;
+  }, [articles, saveArticlesLocally]);
+
+  // Toggle admin pin override (pin to #1 position or unpin)
+  const togglePinArticle = useCallback(
+    (id: string) => {
+      setArticles((prev) => {
+        const updated = prev.map((a) => (a.id === id ? { ...a, pinned: !a.pinned } : a));
+        saveArticlesLocally(updated);
+
+        const target = updated.find((a) => a.id === id);
+        if (target) {
+          if (isFirebaseConfigured()) {
+            publishArticleToFirebase(target).catch(console.error);
+          }
+          fetch('/api/articles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ article: target }),
+          }).catch((e) => console.warn('MongoDB sync notice:', e));
+        }
+
+        return updated;
+      });
     },
     [saveArticlesLocally]
   );
@@ -277,6 +399,9 @@ export const ArticlesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         mongoActive,
         refreshFromMongo,
         syncAllToMongo,
+        reanalyzeArticle,
+        reanalyzeAllArticles,
+        togglePinArticle,
       }}
     >
       {children}

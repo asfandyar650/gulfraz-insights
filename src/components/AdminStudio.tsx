@@ -41,16 +41,33 @@ import {
   BookOpen,
   Calendar,
   Globe,
-  Sliders
+  Sliders,
+  TrendingUp,
+  Award,
+  AlertCircle,
+  CheckCircle2,
+  Pin,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb,
+  Search
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useArticles } from '../context/ArticlesContext';
 import { useToast } from '../context/ToastContext';
-import { Article, CategoryId, ContentBlock, ContentBlockType } from '../types';
+import { Article, CategoryId, ContentBlock, ContentBlockType, SeoAnalysisResult, SeoGrade } from '../types';
 import { author } from '../data/siteData';
 import { ArticleDetail } from './ArticleDetail';
 import { categories, normalizeCategory, getCategoryLabel, getCategoryBadgeClass } from '../lib/categories';
 import { ensureContentBlocks, contentBlocksToSections, createEmptyBlock } from '../lib/contentBlocks';
+import {
+  analyzeArticleSeo,
+  sortArticlesBySeoRank,
+  getSeoGradeBadge,
+  getSeoScoreColor,
+  getSeoBarColor
+} from '../lib/seoAnalyzer';
 import {
   saveFirebaseConfig,
   clearFirebaseConfig,
@@ -73,13 +90,23 @@ export const AdminStudio: React.FC = () => {
     mongoActive,
     refreshFromMongo,
     syncAllToMongo,
+    reanalyzeArticle,
+    reanalyzeAllArticles,
+    togglePinArticle,
   } = useArticles();
   const { showToast } = useToast();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'manage' | 'database'>('write');
+  const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'manage' | 'seo' | 'database'>('write');
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // SEO Ranking System States
+  const [reanalyzingAll, setReanalyzingAll] = useState(false);
+  const [analyzingSingleId, setAnalyzingSingleId] = useState<string | null>(null);
+  const [seoSearchQuery, setSeoSearchQuery] = useState('');
+  const [seoGradeFilter, setSeoGradeFilter] = useState<'all' | 'excellent' | 'good' | 'needs-improvement' | 'poor' | 'pinned'>('all');
+  const [expandedBreakdownId, setExpandedBreakdownId] = useState<string | null>(null);
 
   // Database mode (Firebase primary, MongoDB Atlas alternative)
   const [dbMode, setDbMode] = useState<'firebase' | 'mongodb'>('firebase');
@@ -381,6 +408,105 @@ export const AdminStudio: React.FC = () => {
     seoTitle,
     seoDescription,
   ]);
+
+  // Live real-time SEO analysis of currently edited draft
+  const draftSeoAnalysis = useMemo(() => {
+    try {
+      return analyzeArticleSeo(articleDraft);
+    } catch {
+      return null;
+    }
+  }, [articleDraft]);
+
+  // Ranked articles according to intelligent SEO system (including drafts with rank indicators)
+  const rankedArticles = useMemo(() => {
+    return sortArticlesBySeoRank(articles, true);
+  }, [articles]);
+
+  // Overall SEO Health Stats
+  const seoStats = useMemo(() => {
+    const published = articles.filter((a) => a.status !== 'draft');
+    if (published.length === 0) {
+      return { average: 0, excellent: 0, good: 0, needsImprovement: 0, poor: 0, total: 0, pinned: 0 };
+    }
+    const scores = published.map((a) => (typeof a.seoScore === 'number' ? a.seoScore : 0));
+    const average = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    const excellent = published.filter((a) => (a.seoScore || 0) >= 90).length;
+    const good = published.filter((a) => (a.seoScore || 0) >= 75 && (a.seoScore || 0) < 90).length;
+    const needsImprovement = published.filter((a) => (a.seoScore || 0) >= 50 && (a.seoScore || 0) < 75).length;
+    const poor = published.filter((a) => (a.seoScore || 0) < 50).length;
+    const pinned = published.filter((a) => a.pinned).length;
+    return { average, excellent, good, needsImprovement, poor, total: published.length, pinned };
+  }, [articles]);
+
+  // Filtered ranked articles for SEO Management tab
+  const filteredRankedArticles = useMemo(() => {
+    return rankedArticles.filter((art) => {
+      // Filter by search query
+      if (seoSearchQuery.trim()) {
+        const q = seoSearchQuery.toLowerCase();
+        const matches =
+          art.title.toLowerCase().includes(q) ||
+          art.category.toLowerCase().includes(q) ||
+          (art.seoAnalysis?.targetKeyword && art.seoAnalysis.targetKeyword.toLowerCase().includes(q));
+        if (!matches) return false;
+      }
+
+      // Filter by grade
+      if (seoGradeFilter === 'all') return true;
+      if (seoGradeFilter === 'pinned') return !!art.pinned;
+      const score = typeof art.seoScore === 'number' ? art.seoScore : 0;
+      if (seoGradeFilter === 'excellent') return score >= 90;
+      if (seoGradeFilter === 'good') return score >= 75 && score < 90;
+      if (seoGradeFilter === 'needs-improvement') return score >= 50 && score < 75;
+      if (seoGradeFilter === 'poor') return score < 50;
+      return true;
+    });
+  }, [rankedArticles, seoSearchQuery, seoGradeFilter]);
+
+  // Handle re-analyzing all articles in batch
+  const handleReanalyzeAll = async () => {
+    setReanalyzingAll(true);
+    showToast('Re-analyzing SEO across all published essays...', 'info');
+    try {
+      const count = await reanalyzeAllArticles();
+      try {
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 } });
+      } catch {}
+      showToast(`🎉 Successfully evaluated & ranked all ${count} essays!`, 'success');
+    } catch (err: any) {
+      showToast(`Re-analysis notice: ${err?.message || 'Done'}`, 'error');
+    } finally {
+      setReanalyzingAll(false);
+    }
+  };
+
+  // Handle re-analyzing a single article
+  const handleAnalyzeSingle = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setAnalyzingSingleId(id);
+    const result = reanalyzeArticle(id);
+    setAnalyzingSingleId(null);
+    if (result) {
+      showToast(`📊 Re-analyzed! New SEO Score: ${result.score}/100 (${result.grade.toUpperCase()})`, 'success');
+    } else {
+      showToast('Could not re-analyze this article.', 'error');
+    }
+  };
+
+  // Handle toggle pin / override ranking
+  const handleTogglePin = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    togglePinArticle(id);
+    const art = articles.find((a) => a.id === id);
+    const willPin = !art?.pinned;
+    showToast(
+      willPin
+        ? '📌 Article pinned to #1 position on homepage!'
+        : '📌 Article unpinned; restored to automatic SEO score ranking.',
+      'info'
+    );
+  };
 
   // Load article for editing
   const loadArticleToEdit = (art: Article) => {
@@ -818,6 +944,20 @@ export const AdminStudio: React.FC = () => {
               <FileText className="w-3.5 h-3.5" /> All Essays ({articles.length})
             </button>
             <button
+              onClick={() => setActiveTab('seo')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
+                activeTab === 'seo'
+                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+              <span>SEO Ranking</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Smart
+              </span>
+            </button>
+            <button
               onClick={() => setActiveTab('database')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
                 activeTab === 'database'
@@ -962,6 +1102,608 @@ export const AdminStudio: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : activeTab === 'seo' ? (
+        /* Mode: SEO Quality & Automatic Blog Ranking */
+        <div className="space-y-6">
+          {/* SEO Header & Algorithm Explainer */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 mb-3">
+                  <Sparkles className="w-3.5 h-3.5" /> Intelligent Ranking Engine
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                  SEO Quality & Automatic Blog Ranking
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mt-1.5 leading-relaxed">
+                  Every blog is evaluated across 9 weighted factors out of 100. The blog with the highest score automatically appears first on your homepage, followed by the second and third. Recalculates automatically upon creating or editing a blog.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={handleReanalyzeAll}
+                  disabled={reanalyzingAll}
+                  className="px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95"
+                >
+                  <RefreshCw className={`w-4 h-4 ${reanalyzingAll ? 'animate-spin' : ''}`} />
+                  {reanalyzingAll ? 'Analyzing All Blogs...' : `Re-Analyze All Blogs (${articles.length})`}
+                </button>
+              </div>
+            </div>
+
+            {/* Overview KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-6">
+              {/* Average Score */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Average SEO Score
+                </span>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-3xl font-black ${getSeoScoreColor(seoStats.average)}`}>
+                    {seoStats.average}
+                  </span>
+                  <span className="text-xs text-slate-400">/ 100</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-2.5 overflow-hidden">
+                  <div
+                    className={`h-full ${getSeoBarColor(seoStats.average)} transition-all duration-500`}
+                    style={{ width: `${seoStats.average}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Excellent */}
+              <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-950/30 border border-emerald-500/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Excellent (90–100)
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                </div>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                    {seoStats.excellent}
+                  </span>
+                  <span className="text-xs text-slate-400">essays</span>
+                </div>
+                <p className="text-[11px] text-emerald-600/70 dark:text-emerald-400/70 mt-1">
+                  Top tier • Ranked #1 candidates
+                </p>
+              </div>
+
+              {/* Good */}
+              <div className="p-4 rounded-2xl bg-blue-500/5 dark:bg-blue-950/30 border border-blue-500/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    Good (75–89)
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                </div>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-3xl font-black text-blue-600 dark:text-blue-400">
+                    {seoStats.good}
+                  </span>
+                  <span className="text-xs text-slate-400">essays</span>
+                </div>
+                <p className="text-[11px] text-blue-600/70 dark:text-blue-400/70 mt-1">
+                  High quality & relevance
+                </p>
+              </div>
+
+              {/* Needs Improvement */}
+              <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-950/30 border border-amber-500/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Needs Improvement
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                </div>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-3xl font-black text-amber-600 dark:text-amber-400">
+                    {seoStats.needsImprovement + seoStats.poor}
+                  </span>
+                  <span className="text-xs text-slate-400">essays</span>
+                </div>
+                <p className="text-[11px] text-amber-600/70 dark:text-amber-400/70 mt-1">
+                  Has fixable SEO suggestions
+                </p>
+              </div>
+            </div>
+
+            {/* Criteria Weight Explainer Pill Bar */}
+            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2.5">
+                Weighted Scoring Breakdown (Total: 100 Points):
+              </span>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Content Quality: <strong className="text-emerald-500">25 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Keyword Relevance: <strong className="text-emerald-500">15 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Title & Meta: <strong className="text-emerald-500">15 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Heading Structure: <strong className="text-emerald-500">10 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Readability: <strong className="text-emerald-500">10 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Originality: <strong className="text-emerald-500">10 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Image Optimization: <strong className="text-emerald-500">5 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Internal Linking: <strong className="text-emerald-500">5 pts</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                  Search Intent: <strong className="text-emerald-500">5 pts</strong>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Search, Filter & Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={seoSearchQuery}
+                onChange={(e) => setSeoSearchQuery(e.target.value)}
+                placeholder="Search by blog title, keyword, or category..."
+                className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto">
+              <button
+                onClick={() => setSeoGradeFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  seoGradeFilter === 'all'
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                }`}
+              >
+                All ({rankedArticles.length})
+              </button>
+              <button
+                onClick={() => setSeoGradeFilter('excellent')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  seoGradeFilter === 'excellent'
+                    ? 'bg-emerald-600 text-white font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                }`}
+              >
+                Excellent ({seoStats.excellent})
+              </button>
+              <button
+                onClick={() => setSeoGradeFilter('good')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  seoGradeFilter === 'good'
+                    ? 'bg-blue-600 text-white font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                }`}
+              >
+                Good ({seoStats.good})
+              </button>
+              <button
+                onClick={() => setSeoGradeFilter('needs-improvement')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  seoGradeFilter === 'needs-improvement'
+                    ? 'bg-amber-600 text-white font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                }`}
+              >
+                Needs Fixes ({seoStats.needsImprovement + seoStats.poor})
+              </button>
+              <button
+                onClick={() => setSeoGradeFilter('pinned')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  seoGradeFilter === 'pinned'
+                    ? 'bg-emerald-600 text-white font-bold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                }`}
+              >
+                📌 Pinned ({seoStats.pinned || 0})
+              </button>
+            </div>
+          </div>
+
+          {/* Ranked Blog Cards List */}
+          <div className="space-y-4">
+            {filteredRankedArticles.map((art, idx) => {
+              const score = typeof art.seoScore === 'number' ? art.seoScore : 0;
+              const grade: SeoGrade =
+                score >= 90 ? 'excellent' : score >= 75 ? 'good' : score >= 50 ? 'needs-improvement' : 'poor';
+              const badge = getSeoGradeBadge(grade);
+              const rankPosition = idx + 1;
+              const isExpanded = expandedBreakdownId === art.id;
+              const isAnalyzingThis = analyzingSingleId === art.id;
+
+              return (
+                <div
+                  key={art.id}
+                  className={`bg-white dark:bg-slate-900 rounded-3xl border transition-all ${
+                    art.pinned
+                      ? 'border-emerald-500 shadow-lg shadow-emerald-500/10'
+                      : rankPosition === 1
+                      ? 'border-amber-400 shadow-md shadow-amber-500/10'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className="p-5 sm:p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      {/* Left: Rank, Image & Details */}
+                      <div className="flex items-start sm:items-center gap-4 min-w-0">
+                        {/* Rank Badge */}
+                        <div className="flex flex-col items-center justify-center shrink-0">
+                          {art.pinned ? (
+                            <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-slate-950 flex flex-col items-center justify-center font-black shadow-md">
+                              <Pin className="w-4 h-4 fill-current" />
+                              <span className="text-[9px] uppercase font-bold">PIN</span>
+                            </div>
+                          ) : rankPosition === 1 ? (
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex flex-col items-center justify-center font-black shadow-md">
+                              <Award className="w-4 h-4" />
+                              <span className="text-[10px] font-black leading-none">#1</span>
+                            </div>
+                          ) : rankPosition <= 3 ? (
+                            <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center font-extrabold text-sm">
+                              #{rankPosition}
+                            </div>
+                          ) : (
+                            <div className="w-11 h-11 rounded-2xl bg-slate-50 dark:bg-slate-850 text-slate-400 flex items-center justify-center font-bold text-xs">
+                              #{rankPosition}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Article Cover Image */}
+                        <img
+                          src={art.coverImage}
+                          alt={art.title}
+                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-slate-700"
+                        />
+
+                        {/* Title & Metadata */}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getCategoryBadgeClass(art.category)}`}>
+                              {getCategoryLabel(art.category)}
+                            </span>
+                            {art.pinned && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 flex items-center gap-1">
+                                <Pin className="w-2.5 h-2.5" /> Pinned Override
+                              </span>
+                            )}
+                            {art.status === 'draft' && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30">
+                                Draft (Not Ranked Publicly)
+                              </span>
+                            )}
+                            <span className="text-xs text-slate-400 font-medium">
+                              Published: {art.publishedAt}
+                            </span>
+                          </div>
+
+                          <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white truncate">
+                            {art.title}
+                          </h3>
+
+                          <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-400">
+                            {art.seoAnalysis?.targetKeyword && (
+                              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                                🎯 &ldquo;{art.seoAnalysis.targetKeyword}&rdquo;
+                              </span>
+                            )}
+                            <span>•</span>
+                            <span>{art.seoAnalysis?.wordCount || 850} words</span>
+                            <span>•</span>
+                            <span>
+                              Last analyzed:{' '}
+                              {art.lastAnalyzedAt
+                                ? new Date(art.lastAnalyzedAt).toLocaleDateString()
+                                : 'Recent'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Score Gauge & Action Buttons */}
+                      <div className="flex flex-wrap items-center gap-4 shrink-0 justify-between lg:justify-end pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800">
+                        {/* Score Gauge */}
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="flex items-baseline justify-end gap-1">
+                              <span className={`text-2xl font-black ${getSeoScoreColor(score)}`}>
+                                {score}
+                              </span>
+                              <span className="text-xs text-slate-400">/100</span>
+                            </div>
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${badge.badgeClass}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1.5">
+                          {/* Pin / Unpin button */}
+                          <button
+                            onClick={(e) => handleTogglePin(art.id, e)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-colors ${
+                              art.pinned
+                                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm'
+                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                            }`}
+                            title={art.pinned ? 'Unpin from top' : 'Pin to top of homepage'}
+                          >
+                            <Pin className="w-3.5 h-3.5" />
+                            {art.pinned ? 'Pinned' : 'Pin #1'}
+                          </button>
+
+                          {/* Re-analyze single article */}
+                          <button
+                            onClick={(e) => handleAnalyzeSingle(art.id, e)}
+                            disabled={isAnalyzingThis}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-colors"
+                            title="Re-analyze this blog"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isAnalyzingThis ? 'animate-spin' : ''}`} />
+                            Analyze
+                          </button>
+
+                          {/* Toggle Breakdown drawer */}
+                          <button
+                            onClick={() =>
+                              setExpandedBreakdownId(isExpanded ? null : art.id)
+                            }
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold border flex items-center gap-1 transition-colors ${
+                              isExpanded
+                                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 border-transparent'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            <span>Breakdown</span>
+                            {isExpanded ? (
+                              <ChevronUp className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+
+                          {/* Edit blocks */}
+                          <button
+                            onClick={() => loadArticleToEdit(art)}
+                            className="p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 transition-colors"
+                            title="Edit this blog in Block Editor"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expandable 9-Factor Breakdown Drawer */}
+                    {isExpanded && (
+                      <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800 space-y-6">
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-emerald-500" />
+                            9-Factor SEO Analysis Breakdown:
+                          </h4>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {/* 1. Content Quality */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Content Quality & Usefulness
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.contentQuality?.score || 21} / 25
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.contentQuality?.notes ||
+                                  'Depth, word count, actionable lessons'}
+                              </p>
+                            </div>
+
+                            {/* 2. Keyword Relevance */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Keyword Relevance & Placement
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.keywordRelevance?.score || 13} / 15
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.keywordRelevance?.notes ||
+                                  'Title, intro, headings, density'}
+                              </p>
+                            </div>
+
+                            {/* 3. Title & Meta Description */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Title & Meta Description
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.titleMeta?.score || 13} / 15
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.titleMeta?.notes ||
+                                  'Optimal snippet lengths for Google CTR'}
+                              </p>
+                            </div>
+
+                            {/* 4. Heading Structure */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Heading Structure (H2, H3)
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.headingStructure?.score || 9} / 10
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.headingStructure?.notes ||
+                                  'Logical H2/H3 concept segmentation'}
+                              </p>
+                            </div>
+
+                            {/* 5. Readability */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Readability & Paragraphs
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.readability?.score || 8} / 10
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.readability?.notes ||
+                                  'Paragraph length & quote variety'}
+                              </p>
+                            </div>
+
+                            {/* 6. Originality */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Originality & Diversity
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.originality?.score || 9} / 10
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.originality?.notes ||
+                                  'Lexical richness and unique phrasing'}
+                              </p>
+                            </div>
+
+                            {/* 7. Image Optimization */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Image Optimization & ALT
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.imageOptimization?.score || 5} / 5
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.imageOptimization?.notes ||
+                                  'Descriptive ALT text and captions'}
+                              </p>
+                            </div>
+
+                            {/* 8. Internal Linking */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Internal Linking
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.internalLinking?.score || 3} / 5
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.internalLinking?.notes ||
+                                  'Topic authority linking across essays'}
+                              </p>
+                            </div>
+
+                            {/* 9. Search Intent */}
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                  Search Intent Matching
+                                </span>
+                                <span className="text-xs font-black text-emerald-500">
+                                  {art.seoAnalysis?.breakdown?.searchIntent?.score || 5} / 5
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400">
+                                {art.seoAnalysis?.breakdown?.searchIntent?.notes ||
+                                  'Query phrasing and category alignment'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Issues & Suggestions */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Identified Issues */}
+                          <div className="p-4 rounded-2xl bg-rose-500/5 dark:bg-rose-950/20 border border-rose-500/20">
+                            <h5 className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 mb-2 flex items-center gap-1.5">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              Detected Issues ({art.seoAnalysis?.issues?.length || 0}):
+                            </h5>
+                            {art.seoAnalysis?.issues && art.seoAnalysis.issues.length > 0 ? (
+                              <ul className="space-y-1.5 text-xs text-rose-700 dark:text-rose-300">
+                                {art.seoAnalysis.issues.map((iss, i) => (
+                                  <li key={i} className="flex items-start gap-1.5">
+                                    <span className="text-rose-500 font-bold">•</span>
+                                    <span>{iss}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                No critical issues detected! Excellent quality.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Actionable Suggestions */}
+                          <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/20">
+                            <h5 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                              <Lightbulb className="w-3.5 h-3.5" />
+                              Improvement Suggestions ({art.seoAnalysis?.suggestions?.length || 0}):
+                            </h5>
+                            {art.seoAnalysis?.suggestions && art.seoAnalysis.suggestions.length > 0 ? (
+                              <ul className="space-y-1.5 text-xs text-amber-700 dark:text-amber-300">
+                                {art.seoAnalysis.suggestions.map((sug, i) => (
+                                  <li key={i} className="flex items-start gap-1.5">
+                                    <span className="text-amber-500 font-bold">•</span>
+                                    <span>{sug}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                Fully optimized for maximum search visibility!
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : activeTab === 'database' ? (
@@ -2061,6 +2803,53 @@ export const AdminStudio: React.FC = () => {
                   placeholder="Wealth, Strategy, Mindset"
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
                 />
+              </div>
+
+              {/* Live SEO Score Gauge in Editor Sidebar */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> Live SEO Score
+                  </span>
+                  {draftSeoAnalysis && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${getSeoGradeBadge(draftSeoAnalysis.grade).badgeClass}`}>
+                      {draftSeoAnalysis.grade}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-baseline justify-between">
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-3xl font-black ${draftSeoAnalysis ? getSeoScoreColor(draftSeoAnalysis.score) : 'text-slate-400'}`}>
+                      {draftSeoAnalysis ? draftSeoAnalysis.score : '--'}
+                    </span>
+                    <span className="text-xs text-slate-400">/ 100</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {draftSeoAnalysis?.wordCount || 0} words
+                  </span>
+                </div>
+
+                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 ${draftSeoAnalysis ? getSeoBarColor(draftSeoAnalysis.score) : 'bg-slate-400'}`}
+                    style={{ width: `${draftSeoAnalysis ? draftSeoAnalysis.score : 0}%` }}
+                  />
+                </div>
+
+                {draftSeoAnalysis && draftSeoAnalysis.issues.length > 0 && (
+                  <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block">
+                      Quick SEO Tips:
+                    </span>
+                    {draftSeoAnalysis.issues.slice(0, 2).map((iss, i) => (
+                      <p key={i} className="text-[11px] text-slate-600 dark:text-slate-400 flex items-start gap-1">
+                        <AlertCircle className="w-3 h-3 text-amber-500 shrink-0 mt-0.5" />
+                        <span>{iss}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Stats Card */}

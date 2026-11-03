@@ -20,7 +20,7 @@ export const ArticlesList: React.FC<ArticlesListProps> = ({
   const [selectedCategory, setSelectedCategory] = useState(
     initialCategory === 'all' ? 'all' : normalizeCategory(initialCategory)
   );
-  const [sortBy, setSortBy] = useState<'newest' | 'views' | 'claps'>('newest');
+  const [sortBy, setSortBy] = useState<'seo' | 'newest' | 'views' | 'claps'>('seo');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const filteredArticles = useMemo(() => {
@@ -39,6 +39,15 @@ export const ArticlesList: React.FC<ArticlesListProps> = ({
         return matchesCategory && matchesQuery;
       })
       .sort((a, b) => {
+        if (sortBy === 'seo') {
+          const aPinned = a.pinned ? 1 : 0;
+          const bPinned = b.pinned ? 1 : 0;
+          if (aPinned !== bPinned) return bPinned - aPinned;
+          const aScore = typeof a.seoScore === 'number' ? a.seoScore : 0;
+          const bScore = typeof b.seoScore === 'number' ? b.seoScore : 0;
+          if (bScore !== aScore) return bScore - aScore;
+          return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        }
         if (sortBy === 'views') return (b.views || 0) - (a.views || 0);
         if (sortBy === 'claps') return (b.claps || 0) - (a.claps || 0);
         return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
@@ -94,6 +103,7 @@ export const ArticlesList: React.FC<ArticlesListProps> = ({
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="bg-transparent text-slate-900 dark:text-white font-semibold focus:outline-none cursor-pointer"
               >
+                <option value="seo" className="dark:bg-slate-900">Highest SEO Rank</option>
                 <option value="newest" className="dark:bg-slate-900">Newest First</option>
                 <option value="views" className="dark:bg-slate-900">Most Read</option>
                 <option value="claps" className="dark:bg-slate-900">Most Clapped</option>

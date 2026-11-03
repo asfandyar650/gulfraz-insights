@@ -29,7 +29,7 @@ interface CategoryPageClientProps {
 export const CategoryPageClient: React.FC<CategoryPageClientProps> = ({ category }) => {
   const { articles } = useArticles();
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'latest' | 'popular' | 'claps'>('latest');
+  const [sortBy, setSortBy] = useState<'seo' | 'latest' | 'popular' | 'claps'>('seo');
 
   // Filter articles belonging to this category (only published ones, or all)
   const categoryArticles = useMemo(() => {
@@ -56,6 +56,15 @@ export const CategoryPageClient: React.FC<CategoryPageClientProps> = ({ category
     }
 
     return [...result].sort((a, b) => {
+      if (sortBy === 'seo') {
+        const aPinned = a.pinned ? 1 : 0;
+        const bPinned = b.pinned ? 1 : 0;
+        if (aPinned !== bPinned) return bPinned - aPinned;
+        const aScore = typeof a.seoScore === 'number' ? a.seoScore : 0;
+        const bScore = typeof b.seoScore === 'number' ? b.seoScore : 0;
+        if (bScore !== aScore) return bScore - aScore;
+        return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+      }
       if (sortBy === 'popular') return (b.views || 0) - (a.views || 0);
       if (sortBy === 'claps') return (b.claps || 0) - (a.claps || 0);
       // latest
@@ -171,6 +180,16 @@ export const CategoryPageClient: React.FC<CategoryPageClientProps> = ({ category
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 font-medium hidden md:inline">Sort:</span>
             <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700 text-xs font-semibold">
+              <button
+                onClick={() => setSortBy('seo')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  sortBy === 'seo'
+                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                Top Ranked
+              </button>
               <button
                 onClick={() => setSortBy('latest')}
                 className={`px-3 py-1.5 rounded-lg transition-all ${

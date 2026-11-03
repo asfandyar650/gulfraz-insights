@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useArticles } from '../context/ArticlesContext';
 import { Hero } from '../components/Hero';
 import { CategorySection } from '../components/CategorySection';
 import { FreedomCalculator } from '../components/FreedomCalculator';
+import { sortArticlesBySeoRank } from '../lib/seoAnalyzer';
 
 export default function HomePage() {
   const router = useRouter();
@@ -24,13 +25,20 @@ export default function HomePage() {
     }
   }, [articles, router]);
 
-  const featured = articles.find((a) => a.featured) || articles[0];
+  // Intelligent SEO Ranking:
+  // 1. Highest scoring (or pinned) blog appears first on homepage (Hero)
+  // 2. Second, third, and remaining blogs follow in exact descending SEO score order
+  const rankedArticles = useMemo(() => {
+    return sortArticlesBySeoRank(articles);
+  }, [articles]);
+
+  const featured = rankedArticles[0] || articles[0];
 
   return (
     <div>
       <Hero featuredArticle={featured} />
 
-      <CategorySection articles={articles} />
+      <CategorySection articles={rankedArticles} />
 
       {/* Practical Freedom Calculator section on Home */}
       <section className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-200/80 dark:border-slate-800/80">

@@ -64,6 +64,41 @@ export interface ContentBlock {
   items?: string[];
 }
 
+export interface SeoFactorScore {
+  score: number;
+  maxScore: number;
+  label: string;
+  notes: string;
+}
+
+export interface SeoBreakdown {
+  contentQuality: SeoFactorScore; // max 25
+  keywordRelevance: SeoFactorScore; // max 15
+  titleMeta: SeoFactorScore; // max 15
+  headingStructure: SeoFactorScore; // max 10
+  readability: SeoFactorScore; // max 10
+  originality: SeoFactorScore; // max 10
+  imageOptimization: SeoFactorScore; // max 5
+  internalLinking: SeoFactorScore; // max 5
+  searchIntent: SeoFactorScore; // max 5
+}
+
+export type SeoGrade = 'excellent' | 'good' | 'needs-improvement' | 'poor';
+
+export interface SeoAnalysisResult {
+  score: number; // 0 - 100
+  grade: SeoGrade;
+  breakdown: SeoBreakdown;
+  issues: string[];
+  suggestions: string[];
+  analyzedAt: string;
+  targetKeyword?: string;
+  wordCount: number;
+  headingCount: number;
+  imageCount: number;
+  internalLinkCount: number;
+}
+
 export interface Article {
   id: string;
   slug: string;
@@ -90,6 +125,14 @@ export interface Article {
   seoTitle?: string;
   seoDescription?: string;
   updatedAt?: string;
+  // Intelligent SEO Ranking System
+  seoScore?: number; // 0 - 100
+  seoAnalysis?: SeoAnalysisResult;
+  seoIssues?: string[];
+  seoSuggestions?: string[];
+  lastAnalyzedAt?: string;
+  pinned?: boolean; // Admin override / pin to position #1
+  customRank?: number;
 }
 
 export interface Category {
